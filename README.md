@@ -1,6 +1,8 @@
 factoryng
 ====
 
+[![Build Status](https://travis-ci.org/redgeoff/factoryng.svg)](https://travis-ci.org/redgeoff/factoryng)
+
 An angularjs factory that wraps multiple backends.
 
 Why?
