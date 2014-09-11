@@ -12,7 +12,7 @@ function YngAdapter(name, url) {
 
     describe('Service: ' + name, function () {
 
-      // jasmine.getEnv().defaultTimeoutInterval = 8000;
+      jasmine.getEnv().defaultTimeoutInterval = 10000;
 
       // Usage: setTimeoutPromise(fn, ms), setTimeoutPromise(fn) or setTimeoutPromise(ms)
       function setTimeoutPromise(fn, ms) {
