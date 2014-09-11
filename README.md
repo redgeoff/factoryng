@@ -25,10 +25,7 @@ Usage
 ```
 bower install factoryng
 ```
-**Download via npm**
-```
-npm install factoryng
-```
+
 **Include the scripts**
 
 You must include factoryng.js and any adapters that you are using, e.g.
