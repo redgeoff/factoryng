@@ -1,0 +1,16 @@
+{
+  "name": "factoryng",
+  "version": "0.0.0",
+  "devDependencies": {
+    "es5-shim": "~3.1.0",
+    "angular": "1.2.16",
+    "angular-mocks": "1.2.16",
+    "angular-resource": "1.2.16",
+    "angular-route": "1.2.16",
+    "q": "~1.0.1",
+
+    "pouchdb": "~3.0.5",
+    "firebase": "~1.0.21"
+  },
+  "appPath": "app"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "factoryng",
+  "version": "0.0.0",
+  "description": "An angularjs factory that wraps multiple backends",
+  "devDependencies": {
+    "delta-pouch": "^0.1.5",
+    "grunt": "^0.4.1",
+    "grunt-code-coverage-enforcer": "^0.1.2",
+    "grunt-contrib-clean": "^0.5.0",
+    "grunt-contrib-concat": "^0.4.0",
+    "grunt-contrib-connect": "^0.7.1",
+    "grunt-contrib-copy": "^0.5.0",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-uglify": "^0.4.0",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-karma": "^0.8.3",
+    "grunt-newer": "^0.7.0",
+    "time-grunt": "^0.3.1",
+    "jasmine-as-promised": "0.0.8",
+    "jshint-stylish": "^0.2.0",
+    "karma": "^0.12.22",
+    "karma-coverage": "^0.2.6",
+    "karma-jasmine": "^0.1.5",
+    "karma-phantomjs-launcher": "^0.1.4",
+    "load-grunt-tasks": "^0.4.0"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "grunt test"
+  }
+}

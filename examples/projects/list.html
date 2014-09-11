@@ -1,0 +1,21 @@
+<input type="text" class="form-control" ng-model="search" class="search-query" placeholder="Search">
+<table class="table">
+  <thead>
+  <tr>
+    <th></th>
+    <th>Project</th>
+    <th>Website</th>
+    <th><a href="#/new"><i class="glyphicon glyphicon-plus"></i></a></th>
+  </tr>
+  </thead>
+  <tbody ui-sortable="sortableOptions" ng-model="projects">
+  <tr ng-repeat="project in projects | filter:search">
+    <td><i class="glyphicon glyphicon-move" style="cursor:pointer"></i></td>
+    <td><a href="{{project.site}}" target="_blank">{{project.name}}</a></td>
+    <td>{{project.site}}</td>
+    <td>
+      <a href="#/edit/{{project.$id}}"><i class="glyphicon glyphicon-pencil"></i></a>
+    </td>
+  </tr>
+  </tbody>
+</table>
