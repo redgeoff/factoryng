@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "description": "An angularjs factory that wraps multiple backends",
   "devDependencies": {
-    "delta-pouch": "^0.1.5",
     "grunt": "^0.4.1",
     "grunt-code-coverage-enforcer": "^0.1.2",
     "grunt-contrib-clean": "^0.5.0",

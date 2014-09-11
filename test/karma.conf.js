@@ -26,7 +26,7 @@ module.exports = function(config) {
       'bower_components/angular-route/angular-route.js',
       'bower_components/q/q.js',
       'bower_components/pouchdb/dist/pouchdb.js',
-      'node_modules/delta-pouch/dist/pouchdb.delta-pouch.js',
+      'bower_components/delta-pouch/dist/pouchdb.delta-pouch.js',
       'bower_components/firebase/firebase.js',
       'scripts/yng-utils.js', // need to load yngutils first to setup module
       'test/spec/yng-adapter.js',
