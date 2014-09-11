@@ -24,7 +24,7 @@ Note: code coverage details can be seen by running `grunt serve` and then visiti
 grunt
 ```
 
-**7. Test your adapter in the *Projects* example
+**7. Test your adapter in the *Projects* example**
 ```
 grunt serve
 ```

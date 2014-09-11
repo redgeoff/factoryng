@@ -151,4 +151,4 @@ adapter.get('123'); // get doc with $id = '123'
 
 Contributing
 ----
-A few adapters have already been written. Is yours missing? [Can you help us write it?](CONTRIBUTING.md)?
+A few adapters have already been written. Is yours missing? [Can you help us write it?](CONTRIBUTING.md)
