@@ -8,6 +8,13 @@ Building
     bower install
     grunt
 
+Testing
+----
+
+    grunt test
+
+Note: you must have couchdb running in Admin Party mode at http://127.0.0.1:5984
+
 Creating a new adapter
 ----
 **1. Copy scripts/adapters/templatyng.js**
