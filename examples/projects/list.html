@@ -9,7 +9,7 @@
   </tr>
   </thead>
   <tbody ui-sortable="sortableOptions" ng-model="projects">
-  <tr ng-repeat="project in projects track by $index | filter:search">
+  <tr ng-repeat="project in projects | filter:search track by $index ">
     <td><i class="glyphicon glyphicon-move" style="cursor:pointer"></i></td>
     <td><a href="{{project.site}}" target="_blank">{{project.name}}</a></td>
     <td>{{project.site}}</td>

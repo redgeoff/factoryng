@@ -9,7 +9,7 @@
   </tr>
   </thead>
   <tbody ui-sortable="sortableOptions" ng-model="contacts">
-  <tr ng-repeat="contact in contacts track by $index | filter:search">
+  <tr ng-repeat="contact in contacts | filter:search track by $index">
     <td><i class="glyphicon glyphicon-move" style="cursor:pointer"></i></td>
     <td>{{contact.name}}</td>
     <td>{{contact.email}}</td>
