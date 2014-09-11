@@ -29,8 +29,10 @@ bower install factoryng
 ```
 npm install factoryng
 ```
-**Include in the scripts**
+**Include the scripts**
+
 You must include factoryng.js and any adapters that you are using, e.g.
+
 ```html
 <script src="bower_components/factoryng/dist/factoryng.min.js"></script>
 <script src="bower_components/factoryng/dist/adapters/pouchyng.min.js"></script>
