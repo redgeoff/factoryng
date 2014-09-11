@@ -2,6 +2,15 @@
   "name": "factoryng",
   "version": "0.0.0",
   "description": "An angularjs factory that wraps multiple backends",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/redgeoff/factoryng.git"
+  },
+  "author": "Geoffrey Cox",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/redgeoff/factoryng/issues"
+  },
   "devDependencies": {
     "grunt": "^0.4.1",
     "grunt-code-coverage-enforcer": "^0.1.2",
