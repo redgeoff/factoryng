@@ -1,6 +1,32 @@
 {
   "name": "factoryng",
   "version": "0.0.0",
+  "description": "An angularjs factory that wraps multiple backends",
+  "homepage": "https://github.com/redgeoff/factoryng",
+  "authors": [
+    "Geoffrey Cox"
+  ],
+  "keywords": [
+    "angular",
+    "angularjs",
+    "factory",
+    "binding",
+    "pouch",
+    "pouchdb",
+    "delta-pouch",
+    "delta pouch"
+    "couch",
+    "couchdb"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "coverage",
+    "npm-debug.log"
+  ],
   "devDependencies": {
     "es5-shim": "~3.1.0",
     "angular": "1.2.16",
