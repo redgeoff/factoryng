@@ -1,6 +1,13 @@
 Contributing
 =====
 
+Building
+----
+
+    npm install
+    bower install
+    grunt
+
 Creating a new adapter
 ----
 **1. Copy scripts/adapters/templatyng.js**
