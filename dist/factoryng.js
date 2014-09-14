@@ -110,7 +110,7 @@ angular.module('factoryng')
       }
     };
 
-    Yng.prototype.destroy = function (id) {
+    Yng.prototype.remove = function (id) {
       var doc = this.map[id];
       if (doc) {
         this.model.splice(this.model.indexOf(doc), 1);
@@ -167,7 +167,7 @@ angular.module('factoryng')
     Yng.prototype.removeDoc = function (docOrId) {
       var id = this.toId(docOrId), that = this;
       return $timeout(function () {
-        var doc = that.destroy(id);
+        var doc = that.remove(id);
         emit(that, 'yng-remove', doc);
         return doc;
       }); 
@@ -213,6 +213,24 @@ angular.module('factoryng')
       return null;
     };
 
+    // preserveStore may be used by adapters to destroy the adapter without destroying the
+    // underlying store
+    Yng.prototype.destroy = function (/* preserveStore */) {
+      this.model = [];
+      this.map = {};
+      return $q.when();
+    };
+
+    Yng.prototype.error = function (err) {
+      if (this.onErrorCb) {
+        this.onErrorCb(err);
+      }
+    };
+
+    Yng.prototype.onError = function (callback) {
+      this.onErrorCb = callback;
+    };
+
     Yng.prototype.copyApi = function (obj) {
       var fns = [
         'sortIfNeeded',
@@ -223,11 +241,13 @@ angular.module('factoryng')
         'setProperty',
         'exists',
         'push',
-        'destroy',
+        'remove',
         'length',
         'forEach',
         'cleanup',
-        'provider'
+        'provider',
+        'destroy',
+        'onError'
       ];
       var that = this;
       fns.forEach(function (el) {

@@ -12,7 +12,7 @@ angular.module('factoryng')
         var yng = new Yng(name, url, sortBy);
         yng.copyApi(this);
 
-        var db = null;
+        var db = null, to = null, from = null, changes = null;
 
         this.provider = function() {
           return db;
@@ -22,7 +22,7 @@ angular.module('factoryng')
           if (db) { // already bound
             return yng.bindModel(scope);
           } else {
-            db = new PouchDB(yng.url + '/' + yng.name);
+            db = new PouchDB(yng.name);
             return sync().then(function () {
               yng.sortIfNeeded();
               return yng.bindModel(scope);
@@ -45,36 +45,39 @@ angular.module('factoryng')
           });
         }
 
-        function syncError(/* err */) {
-          // TODO: best way to handle this? Should emit error event on scope?
-          // console.log('syncError=' + err);
+
+        function syncError(err) {
+          // 405, 'Method Not Allowed' generated when DB first created and not really an error
+          /* istanbul ignore next */
+          if (err && err.status !== 405) {
+            yng.error(err);
+          }
         }
 
         /* istanbul ignore next */
-        function error(/* err */) {
-          // TODO: best way to handle this? Should emit error event on scope?
-          // console.log('error=' + err);
+        function error(err) {
+          yng.error(err);
         }
 
         function sync() {
+          db.on('error', error);
           return db.info().then(function (info) {
             /* jshint camelcase: false */
-            db.changes({
+            changes = db.changes({
               since: info.update_seq,
               live: true
             });
             registerListeners();
             var promise = map(), opts = { live: true };
             var remoteCouch = yng.url + '/' + yng.name;
-            db.replicate.to(remoteCouch, opts, syncError);
-            db.replicate.from(remoteCouch, opts, syncError);
+            to = db.replicate.to(remoteCouch, opts, syncError);
+            from = db.replicate.from(remoteCouch, opts, syncError);
             return promise;
           });
         }
 
         function registerListeners() {
-          db.on('error', error)
-            .on('create', yng.applyFactory(onCreate))
+          db.on('create', yng.applyFactory(onCreate))
             .on('update', yng.applyFactory(onUpdate))
             .on('delete', yng.applyFactory(onDelete));
         }
@@ -104,7 +107,7 @@ angular.module('factoryng')
         this.remove = function (docOrId) {
           var id = yng.toId(docOrId), doc = yng.get(id);
           return db.remove(doc).then(function() {
-            return yng.destroy(id);
+            return yng.remove(id);
           });
         };
 
@@ -143,8 +146,22 @@ angular.module('factoryng')
           yng.removeDoc(response.doc._id);
         }
 
-        this.destroy = function () {
-          return db.destroy();
+        function cancel() {
+          to.cancel();
+          from.cancel();
+          changes.cancel();
+        }
+
+        this.destroy = function (preserveStore) {
+          cancel();
+          if (preserveStore) {
+            return yng.destroy();
+          } else {
+            return db.destroy().then(function () {
+              return yng.destroy();
+            });
+          }
         };
+
       };
   }]);
