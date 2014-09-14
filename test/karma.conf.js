@@ -25,7 +25,6 @@ module.exports = function(config) {
       'bower_components/angular-resource/angular-resource.js',
       'bower_components/angular-route/angular-route.js',
       'bower_components/q/q.js',
-      'test/bind-polyfill.js',
       'bower_components/pouchdb/dist/pouchdb.js',
       'bower_components/delta-pouch/dist/pouchdb.delta-pouch.js',
       'bower_components/firebase/firebase.js',

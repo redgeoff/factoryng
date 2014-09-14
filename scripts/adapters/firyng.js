@@ -94,7 +94,7 @@ angular.module('factoryng')
         this.remove = function (docOrId) {
           var defer = $q.defer(), id = yng.toId(docOrId);
           ref.child(id).remove();
-          defer.resolve(yng.destroy(id));
+          defer.resolve(yng.remove(id));
           return defer.promise;
         };
 
@@ -122,10 +122,16 @@ angular.module('factoryng')
           yng.moveDoc(toDoc(snapshot));
         }
 
-        this.destroy = function () {
-          var defer = $q.defer();
-          ref.remove(defer.resolve);
-          return defer.promise;
+        this.destroy = function (preserveStore) {
+          if (preserveStore) {
+            return yng.destroy();
+          } else {
+            var defer = $q.defer();
+            ref.remove(function () {
+              yng.destroy().then(defer.resolve);
+            });
+            return defer.promise;
+          }
         };
       };
   }]);
