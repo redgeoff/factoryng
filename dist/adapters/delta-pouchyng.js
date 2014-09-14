@@ -51,19 +51,19 @@ angular.module('factoryng')
         }
 
         function sync() {
-          db.info(function (err, info) {
+          return db.info().then(function (info) {
             /* jshint camelcase: false */
             db.changes({
               since: info.update_seq,
               live: true
             });
             registerListeners();
+            var promise = map(), opts = { live: true };
+            var remoteCouch = yng.url + '/' + yng.name;
+            db.replicate.to(remoteCouch, opts, syncError);
+            db.replicate.from(remoteCouch, opts, syncError);
+            return promise;
           });
-          var promise = map(), opts = { live: true };
-          var remoteCouch = yng.url + '/' + yng.name;
-          db.replicate.to(remoteCouch, opts, syncError);
-          db.replicate.from(remoteCouch, opts, syncError);
-          return promise;
         }
 
         function registerListeners() {
