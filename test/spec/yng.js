@@ -105,9 +105,9 @@ describe('Service: Yng', function () {
     expect(yng.length()).toEqual(2);
   });
 
-  it('should destroy', function () {
+  it('should remove', function () {
     populate();
-    yng.destroy(google.$id);
+    yng.remove(google.$id);
     expect(yng.length()).toEqual(1);
     expect(yng.at(0)).toEqual(amazon);
     expect(yng.get(google.$id)).not.toBeDefined();
@@ -188,5 +188,22 @@ describe('Service: Yng', function () {
 
   it('should get provider', function () {
     yng.provider();
+  });
+
+  it('should destroy', function () {
+    runs(function () {
+      populate();
+      yng.destroy().then(function () {
+        expect(yng.length() === 0);
+      });
+    });
+  });
+
+  it('should error', function () {
+    yng.error('some error');
+    yng.onError(function (err) {
+      expect(err).toEqual('some error');
+    });
+    yng.error('some error');
   });
 });
