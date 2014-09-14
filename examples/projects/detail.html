@@ -1,19 +1,16 @@
 <form role="form" name="myForm">
 
-  <div class="form-group" ng-class="{error: myForm.name.$invalid && !myForm.name.$pristine}">
-    <label>Name</label>
+  <div class="form-group" ng-class="{'has-error': myForm.name.$invalid && !myForm.name.$pristine}">
+    <label class="control-label" for="name">Name</label>
     <input type="text" class="form-control" name="name" ng-model="project.name" required>
-    <span ng-show="myForm.name.$error.required && !myForm.name.$pristine" class="help-inline">
-        Required {{myForm.name.$pristine}}</span>
+    <span ng-show="myForm.name.$error.required && !myForm.name.$pristine" class="help-block">Required</span>
   </div>
  
-  <div class="form-group" ng-class="{error: myForm.site.$invalid && !myForm.site.$pristine}">
-    <label>Website</label>
+  <div class="form-group" ng-class="{'has-error': myForm.site.$invalid && !myForm.site.$pristine}">
+    <label class="control-label" for="site">Website</label>
     <input type="url" class="form-control" name="site" ng-model="project.site" required>
-    <span ng-show="myForm.site.$error.required && !myForm.site.$pristine" class="help-inline">
-        Required</span>
-    <span ng-show="myForm.site.$error.url" class="help-inline">
-        Not a URL</span>
+    <span ng-show="myForm.site.$error.required && !myForm.site.$pristine" class="help-block">Required</span>
+    <span ng-show="myForm.site.$error.url" class="help-block">Not a URL</span>
   </div>
   
   <br>

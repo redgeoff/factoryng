@@ -1,19 +1,16 @@
 <form role="form" name="myForm">
 
-  <div class="form-group" ng-class="{error: myForm.name.$invalid && !myForm.name.$pristine}">
-    <label>Name</label>
+  <div class="form-group" ng-class="{'has-error': myForm.name.$invalid && !myForm.name.$pristine}">
+    <label class="control-label" for="name">Name</label>
     <input type="text" class="form-control" name="name" ng-model="contact.name" required>
-    <span ng-show="myForm.name.$error.required && !myForm.name.$pristine" class="help-inline">
-        Required {{myForm.name.$pristine}}</span>
+    <span ng-show="myForm.name.$error.required && !myForm.name.$pristine" class="help-block">Required</span>
   </div>
  
-  <div class="form-group" ng-class="{error: myForm.site.$invalid && !myForm.site.$pristine}">
-    <label>Email</label>
+  <div class="form-group" ng-class="{'has-error': myForm.email.$invalid && !myForm.email.$pristine}">
+    <label class="control-label" for="email">Email</label>
     <input type="email" class="form-control" name="email" ng-model="contact.email" required>
-    <span ng-show="myForm.site.$error.required && !myForm.site.$pristine" class="help-inline">
-        Required</span>
-    <span ng-show="myForm.site.$error.url" class="help-inline">
-        Not an email address</span>
+    <span ng-show="myForm.email.$error.required && !myForm.email.$pristine" class="help-block">Required</span>
+    <span ng-show="myForm.email.$error.email" class="help-block">Not an email address</span>
   </div>
   
   <br>
