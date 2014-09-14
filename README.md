@@ -9,7 +9,7 @@ Why?
 ----
 AngularJS is great and there are tons of amazing backends like pouch, firebase, etc... Unfortunately, some of your backend's structure ultimately leaks into your angular controllers. This means that your controllers are then tightly coupled with your backend, which makes it difficult to switch your backend without modifying your controllers.
 
-With factoryng, you can feel free to develop your controllers with little regard to your backend. If you choose to switch backends, include a new backend or use multiple backends you don't have to worry about rewriting your controllers. Sure, your current backend is hott now, but will it be the shiz in a few months?
+With factoryng, you can feel free to develop your controllers with little regard to your backend. If you choose to switch backends, include a new backend or use multiple backends you don't have to worry about rewriting your controllers. Sure, your current backend works great for you now, but will it still be your top choice in 6 months?
 
 Live Demo: Projects (Kitchen Sink)
 ----
