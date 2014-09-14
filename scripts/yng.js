@@ -176,7 +176,7 @@ angular.module('factoryng')
 
     // preserveStore may be used by adapters to destroy the adapter without destroying the
     // underlying store
-    Yng.prototype.destroy = function (preserveStore) {
+    Yng.prototype.destroy = function (/* preserveStore */) {
       this.model = [];
       this.map = {};
       return $q.when();

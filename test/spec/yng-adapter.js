@@ -62,8 +62,8 @@ function YngAdapter(name, url) {
           // database for all tests to prevent creating many test databases
           that.model = 'test_factoryng';          
         } else {
-          that.model = 'test_' + (new Date()).getTime() + '_'
-            + Math.floor(Math.random()*1000000000);
+          that.model = 'test_' + (new Date()).getTime() + '_' +
+            Math.floor(Math.random()*1000000000);
         }
       }));
 
@@ -232,7 +232,6 @@ function YngAdapter(name, url) {
             });
             return that.adapter.create(google).then(function () {
               return that.adapter.create(amazon);
-            }).catch(function (err) {
             });
           });
           return $q.all(defer.promise, promise);
