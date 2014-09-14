@@ -30,7 +30,7 @@ angular.module('factoryng')
           // set doc priority and return promise
         };
 
-        this.destroy = function () {
+        this.destroy = function (preserveStore) {
           // destroy data store and return promise
         };
       };

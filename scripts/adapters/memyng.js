@@ -46,11 +46,5 @@ angular.module('factoryng')
           doc.$priority = priority;
           return yng.moveDoc(doc);
         };
-
-        this.destroy = function () {
-          this.model = [];
-          this.map = {};
-          return $q.when();
-        };
       };
   }]);

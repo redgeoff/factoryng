@@ -29,23 +29,27 @@ Add your adapter to examples/projects/adapters.js
 
 **4. Add any dependencies to bower.json**
 
-**5. Test**
+**5. Add any dependencies to test/karma.config.js**
+
+See the files section
+
+**6. Test**
 ```
 grunt test
 ```
 Note: code coverage details can be seen by running `grunt serve` and then visiting *http://localhost:9000/coverage*
 
-**6. Build**
+**7. Build**
 ```
 grunt
 ```
 
-**7. Test your adapter in the *Projects* example**
+**8. Test your adapter in the *Projects* example**
 ```
 grunt serve
 ```
 Go to *http://localhost:9000/examples/projects*
 
-**8. Submit a pull request**
+**9. Submit a pull request**
 
-**9. Pat yourself on the back! :)**
+**10. Pat yourself on the back and grab a beer! :)**
