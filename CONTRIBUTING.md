@@ -53,3 +53,15 @@ Go to *http://localhost:9000/examples/projects*
 **9. Submit a pull request**
 
 **10. Pat yourself on the back and grab a beer! :)**
+
+
+Publishing
+----
+Let VERSION be something like 1.0.1
+
+    tin -v VERSION
+    grunt
+    git add -A
+    git commit -m 'VERSION'
+    git tag vVERSION
+    git push origin master --tags
