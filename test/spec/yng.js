@@ -46,8 +46,11 @@ describe('Service: Yng', function () {
     $q = _$q_;
   }));
 
-  it('should sort if needed', function () {
+  beforeEach(function () {
     populate();
+  });
+
+  it('should sort if needed', function () {
     yng.sortIfNeeded();
 
     yng.sortBy = yngutils.ASC;
@@ -88,7 +91,6 @@ describe('Service: Yng', function () {
     yng.set(foo);
     expect(yng.get(123)).not.toBeDefined();
 
-    populate();
     var clonedGoogle = yngutils.clone(google);
     delete(clonedGoogle.$priority);
     clonedGoogle.location = 'CA';
@@ -100,13 +102,11 @@ describe('Service: Yng', function () {
   });
 
   it('should not push if exists', function () {
-    populate();
     yng.push(google);
     expect(yng.length()).toEqual(2);
   });
 
   it('should remove', function () {
-    populate();
     yng.remove(google.$id);
     expect(yng.length()).toEqual(1);
     expect(yng.at(0)).toEqual(amazon);
@@ -114,7 +114,6 @@ describe('Service: Yng', function () {
   });
 
   it('should bind', function () {
-    populate();
     var scope = {};
     runs(function () {
       return yng.bindModel(scope).then(function () {
@@ -125,7 +124,6 @@ describe('Service: Yng', function () {
   });
 
   it('should applyFactory', function () {
-    populate();
     var name = yngutils.clone(yng.name);
     var factory = yng.applyFactory(function (x, y) {
       expect(this.name).toEqual(name);
@@ -147,7 +145,6 @@ describe('Service: Yng', function () {
   });
 
   it('should forEach', function () {
-    populate();
     var obj = {
       foo: 'bar'
     };
@@ -164,7 +161,6 @@ describe('Service: Yng', function () {
   });
 
   it('should copyApi', function () {
-    populate();
     var obj = {};
     yng.copyApi(obj);
     expect(obj.at).toBeDefined();
@@ -176,7 +172,6 @@ describe('Service: Yng', function () {
   });
 
   it('should setPriorityIfNeeded', function () {
-    populate();
     var doc = { $id: 123 };
     yng.setPriorityIfNeeded(doc);
     expect(doc.$priority).toEqual(2);
@@ -192,7 +187,6 @@ describe('Service: Yng', function () {
 
   it('should destroy', function () {
     runs(function () {
-      populate();
       yng.destroy().then(function () {
         expect(yng.length() === 0);
       });
@@ -206,4 +200,13 @@ describe('Service: Yng', function () {
     });
     yng.error('some error');
   });
+
+  it('should nextId', function () {
+    var id = yng.nextId();
+    expect(id).toEqual(1);
+    var yng2 = new Yng('website', 'http://example.com');
+    id = yng2.nextId();
+    expect(id).toEqual(2);
+  });
+
 });

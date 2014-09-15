@@ -2,6 +2,10 @@
 // TODO: Is there a way to modify yng-adapter so that it tests the istanbul ignore areas?
 // TODO: way to share code between pouchyng and delta-pouchyng? Probably after spec stabilizes
 
+// TODO: It appears that if the couchdb doesn't exist then the first allDocs, executed by bind,
+// doesn't return any docs. How can one make bind "try again" until allDocs returns data? It doesn't
+// appear that there is a reliable error to key on.
+
 'use strict';
 
 /* global PouchDB */
@@ -23,7 +27,9 @@ angular.module('factoryng')
           if (db) { // already bound
             return yng.bindModel(scope);
           } else {
-            db = new PouchDB(yng.name);
+            // use a unique id as the name to prevent duplicate db names across adapters
+            db = new PouchDB(yng.name + '_' + yng.nextId());
+            db.on('error', error);
             return sync().then(function () {
               yng.sortIfNeeded();
               return yng.bindModel(scope);
@@ -33,10 +39,17 @@ angular.module('factoryng')
 
         function map() {
           return db.all().then(function (docs) {
+            var promises = [];
+
+            // TODO: need to patch pouchyng and delta-pouchyng so that the bind doesn't return until
+            // there is data before requiring code coverage of the following
+            /* istanbul ignore next */
             for (var i in docs) {
               delete(docs[i]._rev);
-              yng.push(docs[i]);
+              promises.push(yng.createDoc(docs[i]));
             }
+
+            return $q.all(promises);
           });
         }
 
@@ -54,7 +67,6 @@ angular.module('factoryng')
         }
 
         function sync() {
-          db.on('error', error);
           return db.info().then(function (info) {
             /* jshint camelcase: false */
             changes = db.changes({
