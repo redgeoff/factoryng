@@ -1,6 +1,10 @@
 // TODO: Option to enable encryption that uses filter pouch
 // TODO: Is there a way to modify yng-adapter so that it tests the istanbul ignore areas?
 
+// TODO: It appears that if the couchdb doesn't exist then the first allDocs, executed by bind,
+// doesn't return any docs. How can one make bind "try again" until allDocs returns data? It doesn't
+// appear that there is a reliable error to key on.
+
 'use strict';
 
 /* global PouchDB */
@@ -22,7 +26,9 @@ angular.module('factoryng')
           if (db) { // already bound
             return yng.bindModel(scope);
           } else {
-            db = new PouchDB(yng.name);
+            // use a unique id as the name to prevent duplicate db names across adapters
+            db = new PouchDB(yng.name + '_' + yng.nextId());
+            db.on('error', error);
             return sync().then(function () {
               yng.sortIfNeeded();
               return yng.bindModel(scope);
@@ -38,13 +44,19 @@ angular.module('factoryng')
         function map() {
           /* jshint camelcase: false */
           return db.allDocs({ include_docs: true }).then(function (doc) {
+            var promises = [];
+
+            // TODO: need to patch pouchyng and delta-pouchyng so that the bind doesn't return until
+            // there is data before requiring code coverage of the following
+            /* istanbul ignore next */
             doc.rows.forEach(function (el) {
               el.doc.$id = el.id;
-              yng.push(el.doc);
+              promises.push(yng.createDoc(el.doc));
             });
+
+            return $q.all(promises);
           });
         }
-
 
         function syncError(err) {
           // 405, 'Method Not Allowed' generated when DB first created and not really an error
@@ -60,7 +72,6 @@ angular.module('factoryng')
         }
 
         function sync() {
-          db.on('error', error);
           return db.info().then(function (info) {
             /* jshint camelcase: false */
             changes = db.changes({
@@ -133,12 +144,13 @@ angular.module('factoryng')
         function onUpdate(response) {
           var newDoc = toDoc(response.doc), oldDoc = yng.get(newDoc.$id);
           /* istanbul ignore next */
-          if (oldDoc) { // protect against onUpdate being called when doc doesn't exist
-            if (newDoc.$priority !== oldDoc.$priority) {
-              yng.moveDoc(newDoc);
-            } else {
-              yng.updateDoc(newDoc);
-            }
+          if (!oldDoc) {
+            // Appears we can get update events for new docs when cache is clear
+            yng.createDoc(newDoc);
+          } else if (newDoc.$priority !== oldDoc.$priority) {
+            yng.moveDoc(newDoc);
+          } else {
+            yng.updateDoc(newDoc);
           }
         }
 

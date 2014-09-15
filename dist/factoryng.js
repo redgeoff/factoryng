@@ -42,6 +42,8 @@ angular.module('factoryng', [])
 angular.module('factoryng')
   .factory('Yng', ['$timeout', '$q', 'yngutils', function ($timeout, $q, yngutils) {
 
+    var id = 0;
+
     var Yng = function (name, url, sortBy) {
       this.name = name;
       this.url = url;
@@ -229,6 +231,10 @@ angular.module('factoryng')
 
     Yng.prototype.onError = function (callback) {
       this.onErrorCb = callback;
+    };
+
+    Yng.prototype.nextId = function () {
+      return ++id;
     };
 
     Yng.prototype.copyApi = function (obj) {
