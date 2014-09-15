@@ -38,6 +38,7 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   var projects = null;
 
   adapter($scope).then(function (projs) {
+    console.log('done binding');
     projects = projs;
   });
 
@@ -61,6 +62,7 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   var projects = null;
 
   adapter($scope).then(function (projs) {
+    console.log('done binding');
     projects = projs;
   });
 
@@ -77,6 +79,7 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
     var projects = null;
 
     adapter($scope).then(function (projs) {
+      console.log('done binding');
       projects = projs;
       $timeout(function () { // trigger UI update
         // create copy so changes can be canceled
