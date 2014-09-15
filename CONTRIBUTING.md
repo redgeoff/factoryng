@@ -65,3 +65,11 @@ Let VERSION be something like 1.0.1
     git commit -m 'VERSION'
     git tag vVERSION
     git push origin master --tags
+
+
+Updating gh-pages
+----
+
+    git checkout gh-pages
+    git merge master
+    git push
