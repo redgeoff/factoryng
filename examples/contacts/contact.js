@@ -1,5 +1,3 @@
-// TODO: pouch bug report for conflict when create with delta pouch
-
 'use strict';
 
 angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])

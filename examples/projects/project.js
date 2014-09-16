@@ -1,4 +1,3 @@
-// TODO: pouch bug report for conflict when create with delta pouch
 // TODO: loading widget that shows when first create adapter and then hides after bind completes
 
 'use strict';
