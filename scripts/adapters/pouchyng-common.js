@@ -118,6 +118,7 @@ var tmpPromise = remoteDb.destroy().then(function () {
 console.log('remote db destroy');
 }).catch(function (err) {
   console.log('remote err' + err);
+  throw err;
 });
 promises.push(tmpPromise, remoteDefer.promise);
           }
