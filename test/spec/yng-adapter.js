@@ -1,3 +1,4 @@
+
 // TODO: test in chrome and firefox???
 
 'use strict';
@@ -8,7 +9,7 @@ function YngAdapter(name, url) {
 
   var that = this, oldRuns = runs;
 
-  this.run = function (injector, after, before, ephemeral, singleDb /* , solo */) {
+  this.run = function (injector, after, before, ephemeral /* , solo */) {
 
     describe('Service: ' + name, function () {
 
@@ -56,15 +57,7 @@ function YngAdapter(name, url) {
         // Mock $timeout so that it doesn't require a $timeout.flush()
         $provide.value('$timeout', setTimeoutPromise);
 
-        // NOTE: some adapters require the model to begin with a letter
-        if (singleDb) {
-          // Some adapters like pouch don't actually delete the database so we need to use the same
-          // database for all tests to prevent creating many test databases
-          that.model = 'test_factoryng';          
-        } else {
-          that.model = 'test_' + (new Date()).getTime() + '_' +
-            Math.floor(Math.random()*1000000000);
-        }
+        that.model = 'test_factoryng';
       }));
 
       var $rootScope, $q, $timeout, $scope, yngutils;
@@ -81,7 +74,11 @@ function YngAdapter(name, url) {
       afterEach(function () {
         runs(function () {
           if (!destroyed && that.adapter) { // don't destroy if already destroyed
-            return that.adapter.destroy();
+            return that.adapter.destroy().then(function () {
+              that.adapter = null;
+            });
+          } else {
+            that.adapter = null;
           }
         });
       });
@@ -105,18 +102,65 @@ function YngAdapter(name, url) {
         });
       }
 
+      // Binds to event, executes action, after action finished resolves when event emitted
+      // -->resolves({ action: actionArgs, event: eventArgs })
+      function doAndOn(actionFactory, event) {
+        var actionDefer = $q.defer(), eventDefer = $q.defer();
+        that.adapter.once(event, function () {
+          var eventArgs = arguments;
+          return actionDefer.promise.then(function (actionArgs) {
+            eventDefer.resolve({ action: actionArgs, event: eventArgs });
+          });
+        });
+        return actionFactory().then(function () {
+          actionDefer.resolve(arguments);
+          return eventDefer.promise;
+        });
+      }
+
+      function createFactory(doc) {
+        return function () {
+          return that.adapter.create(doc);
+        };
+      }
+
+      function updateFactory(doc) {
+        return function () {
+          return that.adapter.update(doc);
+        };
+      }
+
+      function removeFactory(docOrId) {
+        return function () {
+          return that.adapter.remove(docOrId);
+        };
+      }
+
+      function setPriorityFactory(docOrId, priority) {
+        return function () {
+          return that.adapter.setPriority(docOrId, priority);
+        };
+      }
+
       function setup(sortBy) {
+        var promise = null;
         if (that.adapter) {
-          that.adapter.destroy(true); // prevent memory leak
+          promise = that.adapter.destroy(true); // prevent memory leak
+        } else {
+          promise = $q.when();
         }
         that.adapter = new that.Adapter(that.model, url, sortBy);
-        that.adapter.onError(error);
-        return that.adapter.bind($scope);
+        that.adapter.on('error', error);
+        return promise.then(function () {
+          return that.adapter.bind($scope);
+        });
       }
 
       var google = null, amazon = null;
+      // var n = 1; // for dbg
       beforeEach(function () {
         // Some adapters modify parameters, so start w/ a fresh copy each test
+        // console.log('starting test ' + (n++)); // for dbg
         google = { name: 'google', url: 'http://google.com' };
         amazon = { name: 'amazon', url: 'http://amazon.com' };
         destroyed = false;
@@ -136,9 +180,20 @@ function YngAdapter(name, url) {
 
       function expectScopeToEqual(obj) {
         expect($scope[that.model].length).toEqual(obj ? obj.length : 0);
-        for (var i in obj) {
-          expect($scope[that.model][i]).toEqual(obj[i]);
+        if ($scope[that.model].length === obj ? obj.length : 0) {
+          for (var i in obj) {
+            expect($scope[that.model][i]).toEqual(obj[i]);
+          }
         }
+      }
+
+      // Only compare specified attributes
+      function expectToContain(actual, expected) {
+        var item = {};
+        for (var i in expected) {
+          item[i] = actual[i];
+        }
+        expect(item).toEqual(expected);
       }
 
       it('should bind', function () {
@@ -148,7 +203,7 @@ function YngAdapter(name, url) {
               return that.adapter.create(amazon).then(function () {
                 $scope[that.model] = [];
                 return that.adapter.bind($scope).then(function () {
-                  expectScopeToEqual([google, amazon]);
+                  expectScopeToEqual([google, amazon]);                  
                 });
               });
             });
@@ -156,38 +211,31 @@ function YngAdapter(name, url) {
         });
       });
 
+      function loadExistingRecords(sortBy) {
+        runs(function () {
+          return setup().then(function () {
+            return doAndOn(createFactory(google), 'uptodate').then(function () {
+              return doAndOn(createFactory(amazon), 'uptodate').then(function () {
+                $scope[that.model].length = 0; // clear model data
+                expect(that.adapter.at(0)).not.toBeDefined();
+                return setup(sortBy).then(function () {
+                  expectScopeToContain(
+                    sortBy === yngutils.ASC ? [google, amazon] : [amazon, google]);
+                });
+              });
+            });
+          });
+        });  
+      }
+
       // When possible, test that bind loads any existing records
       if (!ephemeral) {
         it('should load existing records', function () {
-          runs(function () {
-            return setup().then(function () {
-              return that.adapter.create(google).then(function () {
-                return that.adapter.create(amazon).then(function () {
-                  $scope[that.model].length = 0; // clear model data
-                  expect(that.adapter.at(0)).not.toBeDefined();
-                  return setup(yngutils.ASC).then(function () {
-                    expectScopeToContain([google, amazon]);
-                  });
-                });
-              });
-            });
-          });
+          loadExistingRecords(yngutils.ASC);
         });
 
         it('should load existing records in descending order', function () {
-          runs(function () {
-            return setup().then(function () {
-              return that.adapter.create(google).then(function () {
-                return that.adapter.create(amazon).then(function () {
-                  $scope[that.model].length = 0; // clear model data
-                  expect(that.adapter.at(0)).not.toBeDefined();
-                  return setup(yngutils.DESC).then(function () {
-                    expectScopeToContain([amazon, google]);
-                  });
-                });
-              });
-            });
-          });
+          loadExistingRecords(yngutils.DESC);
         });
       }
 
@@ -201,12 +249,11 @@ function YngAdapter(name, url) {
           };
           spyOn(foo, 'onChange');
           return setup().then(function () {
-            $scope.$destroy(); // destroy previous binding
             return that.adapter.bind($scope).then(function () {
-              $scope.$on('yng-create', foo.onChange);
-              $scope.$on('yng-update', foo.onChange);
-              $scope.$on('yng-remove', foo.onChange);
-              $scope.$on('yng-move', foo.onChange);
+              that.adapter.on('create', foo.onChange);
+              that.adapter.on('update', foo.onChange);
+              that.adapter.on('remove', foo.onChange);
+              that.adapter.on('move', foo.onChange);
               return setTimeoutPromise(3000).then(function () {
                 expect(foo.onChange).not.toHaveBeenCalled();
               });
@@ -215,51 +262,78 @@ function YngAdapter(name, url) {
         });
       });
 
-      it('should create', function () {
+      function create(event, checkEvent) {
         runs(function () {
-          var defer = $q.defer(), first = true;
-          var promise = setup().then(function () {
+          return setup().then(function () {
             var clonedGoogle = yngutils.clone(google), clonedAmazon = yngutils.clone(amazon);
-            $scope.$on('yng-create', function (event, doc) {
-              if (doc.name === 'google') {
-                expect(doc.$priority).toEqual(0);
-                first = false;
-              } else {
-                expect(doc.$priority).toEqual(1);
-                expectScopeToContain([clonedGoogle, clonedAmazon]);
-                defer.resolve();
+            return doAndOn(createFactory(google), event).then(function (args) {
+              if (event !== 'uptodate') {
+                var googleCreated = checkEvent ? args.event[0] : args.action[0];
+                expectScopeToEqual([googleCreated]);
+                clonedGoogle.$priority = 0;
+                expectToContain(googleCreated, clonedGoogle);
               }
-            });
-            return that.adapter.create(google).then(function () {
-              return that.adapter.create(amazon);
+              return doAndOn(createFactory(amazon), event).then(function (args) {
+                if (event !== 'uptodate') {
+                  var amazonCreated = checkEvent ? args.event[0] : args.action[0];
+                  expectScopeToEqual([googleCreated, amazonCreated]);
+                  clonedAmazon.$priority = 1;
+                  expectToContain(amazonCreated, clonedAmazon);
+                }
+              });
             });
           });
-          return $q.all(defer.promise, promise);
         });
+      }
+
+      it('should create and resolve with created doc', function () {
+        create('create');
       });
 
-      it('should update', function () {
+      it('should create and create event should resolve with created doc', function () {
+        create('create', true);
+      });
+
+      it('should create and uptodate event should be emitted', function () {
+        create('uptodate', true);
+      });
+
+      function update(event, checkEvent) {
         runs(function () {
-          var defer = $q.defer();
-          var promise = setup().then(function () {
-            $scope.$on('yng-update', function (event, doc) {
-              expectScopeToEqual([doc]);
-              defer.resolve();
-            });
-            return that.adapter.create(google).then(function (doc) {
-              var clonedDoc = yngutils.clone(doc);
+          return setup().then(function () {
+            var clonedGoogle = yngutils.clone(google);
+            return doAndOn(createFactory(google), 'create').then(function (args) {
+              var clonedDoc = yngutils.clone(args.event[0]);
               clonedDoc.url = 'https://google.com';
-              return that.adapter.update(clonedDoc);
+              return doAndOn(updateFactory(clonedDoc), event).then(function (args) {
+                if (event !== 'uptodate') {
+                  var updatedDoc = checkEvent ? args.event[0] : args.action[0];
+                  expectScopeToEqual([updatedDoc]);
+                  clonedGoogle.url = 'https://google.com';
+                  expectToContain(updatedDoc, clonedGoogle);
+                }
+              });
             });
           });
-          return $q.all(defer.promise, promise);
         });
+      }
+
+      it('should update and resolve with updated doc', function () {
+        update('update');
+      });
+
+      it('should update and update event should resolve with updated doc', function () {
+        update('update', true);
+      });
+
+      it('should update and uptodate event should be emitted', function () {
+        update('uptodate', true);
       });
 
       it('should update even when no changes', function () {
         runs(function () {
           return setup().then(function () {
-            // We don't exepect a yng-update to be fired, but it may be fired
+            // We don't exepect a update to be emitted, but it may be emitted
             return that.adapter.create(google).then(function () {
               return that.adapter.update(google);
             });
@@ -267,32 +341,44 @@ function YngAdapter(name, url) {
         });
       });
 
-      function remove(useId) {
+      function remove(useId, event, checkEvent) {
         runs(function () {
-          var defer = $q.defer();
-          var rem = setup().then(function () {
-            return that.adapter.create(google).then(function (docCreated) {
-              $scope.$on('yng-remove', function (/* event, docRemoved */) {
-                // docRemoved may be empty as the doc may have already been deleted
-                expectScopeToEqual([]);
-                defer.resolve();
-              });
-              return that.adapter.remove(useId ? docCreated.$id : docCreated).then(
-                function (docRemoved) {
-                  expect(docRemoved.$id).toEqual(docCreated.$id);
+          return setup().then(function () {
+            var clonedGoogle = yngutils.clone(google);
+            return doAndOn(createFactory(google), 'create').then(function (args) {
+              var docCreated = args.action[0];
+              return doAndOn(removeFactory(useId ? docCreated.$id : docCreated), event)
+                .then(function (args) {
+                  expectScopeToEqual([]);
+                  if (!checkEvent) {
+                    // var docRemoved = checkEvent ? args.event[0] : args.action[0];
+                    var docRemoved = args.action[0];
+                    clonedGoogle.$id = docCreated.$id;
+                    expectToContain(docRemoved, clonedGoogle);
+                  }
                 });
             });
           });
-          return $q.all(defer.promise, rem);
         });
       }
 
-      it('should remove with doc', function () {
-        remove();
+      it('should remove with doc and resolve with removed doc', function () {
+        remove(null, 'remove');
       });
 
-      it('should remove with id', function () {
-        remove(true);
+      // TODO: cannot test that events resolve with removed doc without having 2 clients as with 1
+      // client, the doc can be removed before the event is emitted
+
+      it('should remove and remove event should be emitted', function () {
+        remove(null, 'remove', true);
+      });
+
+      it('should remove and uptodate event should be emitted', function () {
+        remove(null, 'uptodate', true);
+      });
+
+      it('should remove with id and resolve with removed doc', function () {
+        remove(true, 'remove');
       });
 
       it('remove should throw error', function () {
@@ -305,29 +391,40 @@ function YngAdapter(name, url) {
         });
       });
 
-      function setPriority(useId) {
+      function setPriority(useId, event, checkEvent) {
         runs(function () {
-          var defer = $q.defer();
-          var promise = setup().then(function () {
-            $scope.$on('yng-move', function (event, docMoved) {
-              expect(that.adapter.at(0).$priority).toEqual(3);
-              expect(docMoved.$priority).toEqual(3);
-              defer.resolve();
-            });
-            return that.adapter.create(google).then(function (docCreated) {
-              return that.adapter.setPriority(useId ? docCreated.$id : docCreated, 3);
+          return setup().then(function () {
+            var clonedGoogle = yngutils.clone(google);
+            return doAndOn(createFactory(google), 'create').then(function (args) {
+              var docCreated = args.action[0];
+              return doAndOn(setPriorityFactory(useId ? docCreated.$id : docCreated, 3), event)
+                .then(function (args) {
+                  if (event !== 'uptodate') {
+                    var docMoved = checkEvent ? args.event[0] : args.action[0];
+                    expectScopeToEqual([docMoved]);
+                    clonedGoogle.$priority = 3;
+                    expectToContain(docMoved, clonedGoogle);
+                  }
+                });
             });
           });
-          return $q.all(defer.promise, promise);
         });
       }
 
-      it('should setPriority with doc', function () {
-        setPriority();
+      it('should setPriority with doc and resolve with updated doc', function () {
+        setPriority(null, 'move');
       });
 
-      it('should setPriority with id', function () {
-        setPriority(true);
+      it('should setPriority and move event should resolve with updated doc', function () {
+        setPriority(null, 'move', true);
+      });
+
+      it('should setPriority and uptodate event should be emitted', function () {
+        setPriority(null, 'uptodate', true);
+      });
+
+      it('should setPriority with id and resolve with updated doc', function () {
+        setPriority(true, 'move');
       });
 
       it('setPriority should throw error', function () {
@@ -371,6 +468,7 @@ function YngAdapter(name, url) {
         });
       });
 
+      // // TODO: Will the following work now that we have restructured pouchyng???
       // // TODO: future project? Appears not very stable to have two instances of pouch syncing
       // // with the same database. Probably has something to do with the 2 instances being in the
       // // same JS VM instance. What if we could use multiple VM instances to simulate multiple
@@ -394,7 +492,7 @@ function YngAdapter(name, url) {
       //         var scope2 = $rootScope.$new();
       //         return adapter2.bind(scope2).then(function () {
       //           var defer = $q.defer(), clonedGoogle = yngutils.clone(google);
-      //           $scope.$on('yng-create', function (event, doc) {
+      //           that.adapter.on('create', function (doc) {
       //             expectScopeToContain([clonedGoogle]);
       //             destroyAndSleep(adapter2).then(defer.resolve);
       //             // defer.resolve();
@@ -416,7 +514,7 @@ function YngAdapter(name, url) {
       //         var clonedGoogle = yngutils.clone(google);
       //         return adapter2.bind(scope2).then(function () {
       //           var defer = $q.defer();
-      //           $scope.$on('yng-update', function (event, doc) {
+      //           that.adapter.on('update', function (doc) {
       //             clonedGoogle.url = 'https://gmail.com';
       //             expectScopeToContain([clonedGoogle]);
       //             destroyAndSleep(adapter2).then(defer.resolve);
@@ -440,7 +538,7 @@ function YngAdapter(name, url) {
       //         var scope2 = $rootScope.$new();
       //         return adapter2.bind(scope2).then(function () {
       //           var defer = $q.defer(), clonedGoogle = yngutils.clone(google);
-      //           $scope.$on('yng-move', function (event, doc) {
+      //           that.adapter.on('move', function (doc) {
       //             clonedGoogle.$priority = 2;
       //             expectScopeToContain([clonedGoogle]);
       //             destroyAndSleep(adapter2).then(defer.resolve);

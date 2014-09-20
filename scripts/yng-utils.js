@@ -36,4 +36,22 @@ angular.module('factoryng', [])
     this.clone = function (obj) {
       return JSON.parse(JSON.stringify(obj));
     };
+
+    this.copyFns = function (fns, from, to) {
+      fns.forEach(function (el) {
+        to[el] = function () {
+          return from[el].apply(from, arguments);
+        };
+      });
+    };
+
+    this.forEach = function(obj, callback) {
+      for (var i in obj) {
+        /* istanbul ignore next */
+        if (obj.hasOwnProperty(i)) {
+          callback(obj[i], i, obj);
+        }
+      }
+    };
+
   });

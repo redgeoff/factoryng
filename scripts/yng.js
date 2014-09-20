@@ -1,5 +1,7 @@
 'use strict';
 
+/* global EventEmitter */
+
 angular.module('factoryng')
   .factory('Yng', ['$timeout', '$q', 'yngutils', function ($timeout, $q, yngutils) {
 
@@ -14,6 +16,11 @@ angular.module('factoryng')
       this.sorting = false;
       this.scope = null;
     };
+
+    // We define our own event emitter instead of using angular's as it is possible that two
+    // different adapters are bound to the same scope and we wouldn't want to have their events
+    // interfere with each other.
+    Yng.prototype = new EventEmitter();
 
     // delay to minimize sorting while receiving multiple $priority updates
     var SORT_AFTER_MS = 100;
@@ -95,6 +102,13 @@ angular.module('factoryng')
       });
     };
 
+    Yng.prototype.rebindModel = function (scope) {
+      var that = this;
+      return this.bindModel(scope).then(function () {
+        that.emit('load'); // already loaded so emit event
+      });
+    };
+
     Yng.prototype.applyFactory = function (fn) {
       var that = this;
       return function () {
@@ -102,18 +116,11 @@ angular.module('factoryng')
       };
     };
 
-    function emit(yng, event, args) {
-      // ensure yng.scope has aleady been set
-      if (yng.scope) {
-        yng.scope.$emit(event, args);
-      }
-    }
-
     Yng.prototype.createDoc = function (doc) {
       var that = this;
       return $timeout(function () {
         that.push(doc);
-        emit(that, 'yng-create', doc);
+        that.emit('create', doc);
         return doc;
       });
     };
@@ -122,7 +129,7 @@ angular.module('factoryng')
       var that = this;
       return $timeout(function () {
         that.set(doc);
-        emit(that, 'yng-update', doc);
+        that.emit('update', doc);
         return doc;
       }); 
     };
@@ -131,7 +138,7 @@ angular.module('factoryng')
       var id = this.toId(docOrId), that = this;
       return $timeout(function () {
         var doc = that.remove(id);
-        emit(that, 'yng-remove', doc);
+        that.emit('remove', doc);
         return doc;
       }); 
     };
@@ -143,7 +150,7 @@ angular.module('factoryng')
           that.set(doc);
           that.sortSoonIfNeeded();
         }
-        emit(that, 'yng-move', doc);
+        that.emit('move', doc);
         return doc;
       }); 
     };
@@ -176,22 +183,17 @@ angular.module('factoryng')
       return null;
     };
 
-    // preserveStore may be used by adapters to destroy the adapter without destroying the
-    // underlying store
-    Yng.prototype.destroy = function (/* preserveStore */) {
+    // preserveRemote should be used by adapters to destroy the adapter without destroying the
+    // remote store when applicable
+    Yng.prototype.destroy = function (/* preserveRemote */) {
+      this.removeAllListeners();
       this.model = [];
       this.map = {};
       return $q.when();
     };
 
     Yng.prototype.error = function (err) {
-      if (this.onErrorCb) {
-        this.onErrorCb(err);
-      }
-    };
-
-    Yng.prototype.onError = function (callback) {
-      this.onErrorCb = callback;
+      this.emit('error', err);
     };
 
     Yng.prototype.nextId = function () {
@@ -214,14 +216,12 @@ angular.module('factoryng')
         'cleanup',
         'provider',
         'destroy',
-        'onError'
+
+        'on',
+        'once',
+        'removeListener'
       ];
-      var that = this;
-      fns.forEach(function (el) {
-        obj[el] = function () {
-          return that[el].apply(that, arguments);
-        };
-      });
+      yngutils.copyFns(fns, this, obj);
     };
 
     return Yng;    

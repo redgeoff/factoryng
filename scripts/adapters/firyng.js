@@ -15,11 +15,22 @@ angular.module('factoryng')
           return firebase;
         };
 
+        function onLoadFactory(defer) {
+          return function (snapshot) {
+            map(snapshot).then(function () {
+              // Firebase automatically sorts in ascending order
+              if (yng.sortBy && yng.sortBy !== yngutils.ASC) {
+                yng.sortIfNeeded();
+              }
+              return yng.bindModel(yng.scope).then(defer.resolve);
+            });
+          };
+        }
+
         this.bind = function (scope) {
           if (firebase) { // already bound
-            return yng.bindModel(scope);
+            return yng.rebindModel(scope);
           } else {
-            var defer = $q.defer();
             firebase = new Firebase(yng.url);
             ref = firebase.child(yng.name);
 
@@ -29,18 +40,9 @@ angular.module('factoryng')
             // for the initial load or not.
             registerListeners();
 
-            ref.once('value', function (snapshot) {
-              map(snapshot);
-              
-              // Firebase automatically sorts in ascending order
-              if (yng.sortBy && yng.sortBy !== yngutils.ASC) {
-                yng.sortIfNeeded();
-              }
-
-              yng.bindModel(scope).then(function () {
-                defer.resolve(scope[yng.name]);
-              });
-            });
+            var defer = $q.defer();
+            yng.scope = scope;
+            ref.once('value', onLoadFactory(defer));
             return defer.promise;
           }
         };
@@ -53,8 +55,10 @@ angular.module('factoryng')
         }
 
         function map(snapshot) {
-          snapshot.forEach(function (childSnapshot) {
-            yng.push(toDoc(childSnapshot));
+          return $timeout(function () {
+            snapshot.forEach(function (childSnapshot) {
+              yng.push(toDoc(childSnapshot));
+            });
           });
         }
 
@@ -74,52 +78,57 @@ angular.module('factoryng')
         }
 
         this.create = function (doc) {
-          var defer = $q.defer(), newDocRef = ref.push();
+          var newDocRef = ref.push();
           doc.$id = newDocRef.name();
           yng.setPriorityIfNeeded(doc);
           setWithPriority(newDocRef, doc);
           yng.push(doc);
-          defer.resolve(doc);
-          return defer.promise;
+          return $q.when(doc);
         };
 
         this.update = function (doc) {
-          var defer = $q.defer();
           setWithPriority(ref.child(doc.$id), doc);
           yng.set(doc);
-          defer.resolve(doc);
-          return defer.promise;
+          return $q.when(doc);
         };
 
         this.remove = function (docOrId) {
-          var defer = $q.defer(), id = yng.toId(docOrId);
+          var id = yng.toId(docOrId);
           ref.child(id).remove();
-          defer.resolve(yng.remove(id));
-          return defer.promise;
+          var doc = yng.remove(id);
+          return $q.when(doc);
         };
 
         this.setPriority = function (docOrId, priority) {
-          var defer = $q.defer(), id = yng.toId(docOrId);
+          var id = yng.toId(docOrId);
           ref.child(id).setPriority(priority);
           yng.setProperty(id, '$priority', priority);
-          defer.resolve(yng.get(id));
-          return defer.promise;
+          var doc = yng.get(id);
+          return $q.when(doc);
         };
 
         function onChildAdded(snapshot) {
-          yng.createDoc(toDoc(snapshot));
+          yng.createDoc(toDoc(snapshot)).then(function () {
+            yng.emit('uptodate');
+          });
         }
 
         function onChildChanged(snapshot) {
-          yng.updateDoc(toDoc(snapshot));
+          yng.updateDoc(toDoc(snapshot)).then(function () {
+            yng.emit('uptodate');
+          });
         }
 
         function onChildRemoved(snapshot) {
-          yng.removeDoc(snapshot.name());
+          yng.removeDoc(snapshot.name()).then(function () {
+            yng.emit('uptodate');
+          });
         }
 
         function onChildMoved(snapshot) {
-          yng.moveDoc(toDoc(snapshot));
+          yng.moveDoc(toDoc(snapshot)).then(function () {
+            yng.emit('uptodate');
+          });
         }
 
         this.destroy = function (preserveStore) {

@@ -17,6 +17,8 @@ Note: you must have couchdb running in Admin Party mode at http://127.0.0.1:5984
 
 Creating a new adapter
 ----
+TODO: Add details about create, update, delete, move and uptodate events
+
 **1. Copy scripts/adapters/templatyng.js**
 
 The convention is to take the backend's name and append a *yng*. E.G. The adapter for PouchDB is called *Pouchyng* and the adapter for Firebase is called *Firyng*
