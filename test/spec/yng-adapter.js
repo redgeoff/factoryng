@@ -215,7 +215,7 @@ console.log('should bind5');
           });
         });
       });
-return;
+
       function loadExistingRecords(sortBy) {
         runs(function () {
           return setup().then(function () {
