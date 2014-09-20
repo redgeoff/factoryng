@@ -78,9 +78,18 @@ angular.module('factoryng')
         }
 
         this.cancel = function () {
-          that.changes.cancel();
-          that.to.cancel();
-          that.from.cancel();
+          /* istanbul ignore next */
+          if (that.changes) {
+            that.changes.cancel();
+          }
+          /* istanbul ignore next */
+          if (that.to) {
+            that.to.cancel();
+          }
+          /* istanbul ignore next */
+          if (that.from) {
+            that.from.cancel();
+          }
         };
 
         this.destroy = function (preserveRemote) {
