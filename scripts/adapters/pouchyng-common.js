@@ -113,7 +113,13 @@ console.log('destroy3');
 console.log('destroy4');
               remoteDefer.resolve();
             });
-            promises.push(remoteDb.destroy(), remoteDefer.promise);
+//            promises.push(remoteDb.destroy(), remoteDefer.promise);
+var tmpPromise = remoteDb.destroy().then(function () {
+console.log('remote db destroy');
+}).catch(function (err) {
+  console.log('remote err' + err);
+});
+promises.push(tmpPromise, remoteDefer.promise);
           }
 
           return $q.all(promises).then(function () {
