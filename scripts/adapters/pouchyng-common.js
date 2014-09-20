@@ -101,7 +101,14 @@ console.log('destroy1');
 console.log('destroy2');
             localDefer.resolve();
           });
-          var promises = [that.db.destroy(), localDefer.promise];
+//          var promises = [that.db.destroy(), localDefer.promise];
+var tmpPromise0 = that.db.destroy().then(function () {
+console.log('local db destroy');
+}).catch(function (err) {
+  console.log('local err' + err);
+//  throw err;
+});
+var promises = [tmpPromise0, localDefer.promise];
 
           if (!preserveRemote) {
 console.log('destroy3');
