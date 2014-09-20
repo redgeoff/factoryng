@@ -93,26 +93,31 @@ angular.module('factoryng')
         };
 
         this.destroy = function (preserveRemote) {
+console.log('destroy1');
           that.cancel();
 
           var localDefer = $q.defer();
           this.db.on('destroyed', function () {
+console.log('destroy2');
             localDefer.resolve();
           });
           var promises = [that.db.destroy(), localDefer.promise];
 
           if (!preserveRemote) {
+console.log('destroy3');
             // Calling db.destroy() only removes the local database, we need to remove the remote
             // database separately
             var remoteDb = new PouchDB(that.yng.url + '/' + that.yng.name);
             var remoteDefer = $q.defer();
             remoteDb.on('destroyed', function () {
+console.log('destroy4');
               remoteDefer.resolve();
             });
             promises.push(remoteDb.destroy(), remoteDefer.promise);
           }
 
           return $q.all(promises).then(function () {
+console.log('destroy5');
             return that.yng.destroy();
           });
         };

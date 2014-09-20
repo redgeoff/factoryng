@@ -198,11 +198,16 @@ function YngAdapter(name, url) {
 
       it('should bind', function () {
         runs(function () {
+console.log('should bind1');
           return setup(yngutils.ASC).then(function () {
+console.log('should bind2');
             return that.adapter.create(google).then(function () {
+console.log('should bind3');
               return that.adapter.create(amazon).then(function () {
+console.log('should bind4');
                 $scope[that.model] = [];
                 return that.adapter.bind($scope).then(function () {
+console.log('should bind5');
                   expectScopeToEqual([google, amazon]);                  
                 });
               });
@@ -210,7 +215,7 @@ function YngAdapter(name, url) {
           });
         });
       });
-
+return;
       function loadExistingRecords(sortBy) {
         runs(function () {
           return setup().then(function () {
