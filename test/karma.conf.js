@@ -26,6 +26,8 @@ module.exports = function(config) {
       'bower_components/angular-route/angular-route.js',
       'bower_components/q/q.js',
       'node_modules/events/events.js',
+//'node_modules/request/request.js',
+//      'bower_components/jquery/dist/jquery.js',
       'bower_components/pouchdb/dist/pouchdb.js',
       'bower_components/delta-pouch/dist/pouchdb.delta-pouch.js',
       'bower_components/firebase/firebase.js',

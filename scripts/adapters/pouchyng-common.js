@@ -47,7 +47,7 @@ angular.module('factoryng')
 
 //   PouchDB.on('created', function (dbName) {
 // console.log('created '+ dbName);
-//     // More reliable way when considering simultaneous bindings to the same database
+//     TODO: use name generated with nextId
 //     if (dbName.indexOf(that.yng.name) === 0) {
 // console.log('posting');
 // remoteDb.post({ foo: 'bar' }).then(function () {
@@ -69,6 +69,12 @@ angular.module('factoryng')
 // }
 
         this.bind = function (scope) {
+// DBG - START
+new PouchDB(that.yng.name + '_' + that.yng.nextId());
+that.yng.bindModel(scope);
+// DBG - END
+
+
           if (that.db) { // already bound
             return that.yng.rebindModel(scope);
           } else {

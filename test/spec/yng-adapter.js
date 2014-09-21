@@ -73,8 +73,8 @@ function YngAdapter(name, url) {
 
       afterEach(function () {
         runs(function () {
-// that.adapter = null;
-// return;
+that.adapter = null;
+return;
           if (!destroyed && that.adapter) { // don't destroy if already destroyed
             return that.adapter.destroy().then(function () {
               that.adapter = null;
@@ -189,14 +189,14 @@ function YngAdapter(name, url) {
       it('should bind', function () {
         runs(function () {
           return setup(yngutils.ASC).then(function () {
-            // return that.adapter.create(google).then(function () {
-            //   return that.adapter.create(amazon).then(function () {
-            //     $scope[that.model] = [];
-            //     return that.adapter.bind($scope).then(function () {
-            //       expectScopeToEqual([google, amazon]);                  
-            //     });
-            //   });
-            // });
+            return that.adapter.create(google).then(function () {
+              return that.adapter.create(amazon).then(function () {
+                $scope[that.model] = [];
+                return that.adapter.bind($scope).then(function () {
+                  expectScopeToEqual([google, amazon]);                  
+                });
+              });
+            });
           });
         });
       });

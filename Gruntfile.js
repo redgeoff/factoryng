@@ -219,6 +219,12 @@ module.exports = function (grunt) {
         src: 'scripts',
         excludes: ['scripts/adapters/templatyng.js']
       }
+    },
+
+    execute: {
+      target: {
+        src: ['node_modules/add-cors-to-couchdb/bin.js']
+      }
     }
   });
 
@@ -243,6 +249,7 @@ module.exports = function (grunt) {
     'clean:server',
     'clean:coverage',
     'connect:test',
+    'execute',
     'karma',
     'code-coverage-enforcer'
   ]);
