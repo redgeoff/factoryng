@@ -192,7 +192,7 @@ function YngAdapter(name, url) {
               return that.adapter.create(amazon).then(function () {
                 $scope[that.model] = [];
                 return that.adapter.bind($scope).then(function () {
-                  expectScopeToEqual([google, amazon]);                  
+                  expectScopeToEqual([google, amazon]);
                 });
               });
             });
