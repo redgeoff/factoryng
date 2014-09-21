@@ -194,8 +194,7 @@ describe('Service: Yng', function () {
   });
 
   it('should error', function () {
-    yng.error('some error');
-    yng.onError(function (err) {
+    yng.on('error', function (err) {
       expect(err).toEqual('some error');
     });
     yng.error('some error');
