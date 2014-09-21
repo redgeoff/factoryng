@@ -73,8 +73,8 @@ function YngAdapter(name, url) {
 
       afterEach(function () {
         runs(function () {
-that.adapter = null;
-return;
+// that.adapter = null;
+// return;
           if (!destroyed && that.adapter) { // don't destroy if already destroyed
             return that.adapter.destroy().then(function () {
               that.adapter = null;
@@ -200,7 +200,7 @@ return;
           });
         });
       });
-return;
+
       function loadExistingRecords(sortBy) {
         runs(function () {
           return setup().then(function () {
