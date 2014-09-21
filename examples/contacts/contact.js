@@ -52,7 +52,9 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
   $scope.save = function () {
     contacts.create($scope.contact).then(function(/* doc */) {
       console.log('done adding doc');
-      $location.path('/');
+      $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+        $location.path('/');
+      });
     });
   };
 })
@@ -71,14 +73,18 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
     $scope.destroy = function () {
       contacts.remove($scope.contact).then(function () {
         console.log('done removing');
-        $location.path('/');
+        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+          $location.path('/');
+        });
       });
     };
  
     $scope.save = function () {
       contacts.update($scope.contact).then(function () {
         console.log('done saving');
-        $location.path('/');
+        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+          $location.path('/');
+        });
       });
     };
 });

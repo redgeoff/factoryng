@@ -68,7 +68,9 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   $scope.save = function () {
     projects.create($scope.project).then(function(/* doc */) {
       console.log('done adding doc');
-      $location.path('/');
+      $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+        $location.path('/');
+      });
     });
   };
 })
@@ -89,14 +91,18 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
     $scope.destroy = function () {
       projects.remove($scope.project).then(function () {
         console.log('done removing');
-        $location.path('/');
+        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+          $location.path('/');
+        });
       });
     };
  
     $scope.save = function () {
       projects.update($scope.project).then(function () {
         console.log('done saving');
-        $location.path('/');
+        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
+          $location.path('/');
+        });
       });
     };
 });
