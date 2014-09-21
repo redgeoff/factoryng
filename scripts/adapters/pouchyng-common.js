@@ -25,56 +25,7 @@ angular.module('factoryng')
           return that.db;
         };
 
-// function createRemoteDb() {
-//   var remoteDbName = that.yng.url + '/' + that.yng.name;
-
-// // PouchDb.once('created', function (dbName) {
-// //   if (dbName === remoteDbName) {
-// //     de
-// //   }
-// // });
-
-//   return yngutils.doAndOnce(function () {
-//     var remoteDb = new PouchDB(dbName);
-//   }, 'created', PouchDB).then
-// }
-
-// function createRemoteDb() {
-// console.log('creating remote db');
-//   var remoteDbName = that.yng.url + '/' + that.yng.name;
-// console.log(remoteDbName);
-//   var defer = $q.defer();
-
-//   PouchDB.on('created', function (dbName) {
-// console.log('created '+ dbName);
-//     TODO: use name generated with nextId
-//     if (dbName.indexOf(that.yng.name) === 0) {
-// console.log('posting');
-// remoteDb.post({ foo: 'bar' }).then(function () {
-// console.log('fooed ok');
-//   defer.resolve();
-// }).catch(function (err) {
-// console.log('fooed err =' + err);
-// })
-// //      defer.resolve();
-//     }
-//   });
-
-//   var remoteDb = new PouchDB(remoteDbName);
-//   return $q.all(remoteDb, defer.promise).catch(function (err) {
-//     if (err.status !== 405) {
-//       throw err;
-//     }
-//   });
-// }
-
         this.bind = function (scope) {
-// DBG - START
-new PouchDB(that.yng.name + '_' + that.yng.nextId());
-that.yng.bindModel(scope);
-// DBG - END
-
-
           if (that.db) { // already bound
             return that.yng.rebindModel(scope);
           } else {
@@ -87,26 +38,16 @@ that.yng.bindModel(scope);
 
             that.yng.scope = scope;
             that.db.on('error', that.yng.error);
-
-// // When not using CORS it appears pouch requires an explict call to create the remote
-// // database
-// return createRemoteDb().then(function () {
-//   sync();
-// });
-return sync();
+            return sync();
           }
         };
 
         function syncError(err) {
-// 405, 'Method Not Allowed' generated when DB first created and not really an error
-/* istanbul ignore next */
-//console.log('syncError=' + err);
-//          if (err && err.status !== 405) {
-
-// Appears we need to ignore error events with null parameters
-if (err) {
+          // Appears we need to ignore error events with null parameters
+          /* istanbul ignore if */
+          if (err) {
             that.yng.error(err);
-}
+          }
         }
 
         function onUpToDate() {
@@ -164,13 +105,6 @@ if (err) {
           return yngutils.doAndOnce(function () {
             return remoteDb.destroy();
           }, 'destroyed', remoteDb);
-// }, 'destroyed', remoteDb).catch(function (err) {
-//   // When CORS is not enabled, pouch will throw a 405 error even though it still removes
-//   // the remote DB
-//   if (err.status !== 405) {
-//     throw err;
-//   }
-// });
         }
 
         this.destroy = function (preserveRemote) {
@@ -182,19 +116,6 @@ if (err) {
           var promises = [localPromise];
 
           if (!preserveRemote) {
-// // Calling db.destroy() only removes the local database, we need to remove the remote
-// // database separately
-// var remoteDb = new PouchDB(that.yng.url + '/' + that.yng.name);
-// var remotePromise = yngutils.doAndOnce(function () {
-//   return remoteDb.destroy();
-// }, 'destroyed', remoteDb).catch(function (err) {
-//   // When CORS is not enabled, pouch will throw a 405 error even though it still removes
-//   // the remote DB
-//   if (err.status !== 405) {
-//     throw err;
-//   }
-// });
-// promises.push(remotePromise);
             promises.push(destroyRemoteDb());
           }
 
