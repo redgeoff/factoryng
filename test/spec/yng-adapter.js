@@ -200,7 +200,7 @@ function YngAdapter(name, url) {
           });
         });
       });
-
+return;
       function loadExistingRecords(sortBy) {
         runs(function () {
           return setup().then(function () {

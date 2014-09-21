@@ -1,5 +1,8 @@
 // TODO: do we need to refactor so that can access provider before it is used, i.e. we can apply a
-// plugin before the provider is used? Should we just expose something like newProvider?
+// plugin before the provider is used? Should we just expose something like newProvider? Really,
+// this should sort of be hidden from the user as then the controller needs to understand logic
+// about the adapter--however, this approach might be too controlling as someone might not want to
+// have to develop a new adapter just to use a pouch plugin
 
 // TODO: Option to enable encryption that uses filter pouch
 
