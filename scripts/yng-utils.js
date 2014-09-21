@@ -1,7 +1,7 @@
 'use strict';
 
 angular.module('factoryng', [])
-  .service('yngutils', function () {
+  .service('yngutils', ['$q', function ($q) {
 
     this.ASC = 1;
     this.DESC = 2;
@@ -54,4 +54,20 @@ angular.module('factoryng', [])
       }
     };
 
-  });
+    // Binds to event, executes action, after action finished resolves when event emitted
+    // -->resolves({ action: actionArgs, event: eventArgs })
+    this.doAndOnce = function (actionFactory, event, emitter) {
+      var actionDefer = $q.defer(), eventDefer = $q.defer();
+      emitter.once(event, function () {
+        var eventArgs = arguments;
+        return actionDefer.promise.then(function (actionArgs) {
+          eventDefer.resolve({ action: actionArgs, event: eventArgs });
+        });
+      });
+      return actionFactory().then(function () {
+        actionDefer.resolve(arguments);
+        return eventDefer.promise;
+      });
+    };
+
+  }]);

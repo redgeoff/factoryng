@@ -16,7 +16,7 @@ function YngAdapter(name, url) {
       // jasmine.getEnv().defaultTimeoutInterval = 20000;
 
       function error(err) {
-        expect((err.stack ? err.stack : err)).toBe(''); // TODO: better way to report this error?
+        expect((err && err.stack ? err.stack : err)).toBe(''); // TODO: better way to report this error?
       }
 
       // jasmine-as-promised doesn't appear to output promise exceptions so we will do it manually
@@ -73,6 +73,8 @@ function YngAdapter(name, url) {
 
       afterEach(function () {
         runs(function () {
+// that.adapter = null;
+// return;
           if (!destroyed && that.adapter) { // don't destroy if already destroyed
             return that.adapter.destroy().then(function () {
               that.adapter = null;
@@ -102,20 +104,8 @@ function YngAdapter(name, url) {
         });
       }
 
-      // Binds to event, executes action, after action finished resolves when event emitted
-      // -->resolves({ action: actionArgs, event: eventArgs })
-      function doAndOn(actionFactory, event) {
-        var actionDefer = $q.defer(), eventDefer = $q.defer();
-        that.adapter.once(event, function () {
-          var eventArgs = arguments;
-          return actionDefer.promise.then(function (actionArgs) {
-            eventDefer.resolve({ action: actionArgs, event: eventArgs });
-          });
-        });
-        return actionFactory().then(function () {
-          actionDefer.resolve(arguments);
-          return eventDefer.promise;
-        });
+      function doAndOnce(actionFactory, event) {
+        return yngutils.doAndOnce(actionFactory, event, that.adapter);
       }
 
       function createFactory(doc) {
@@ -198,16 +188,11 @@ function YngAdapter(name, url) {
 
       it('should bind', function () {
         runs(function () {
-console.log('should bind1');
           return setup(yngutils.ASC).then(function () {
-console.log('should bind2');
             return that.adapter.create(google).then(function () {
-console.log('should bind3');
               return that.adapter.create(amazon).then(function () {
-console.log('should bind4');
                 $scope[that.model] = [];
                 return that.adapter.bind($scope).then(function () {
-console.log('should bind5');
                   expectScopeToEqual([google, amazon]);                  
                 });
               });
@@ -219,8 +204,8 @@ console.log('should bind5');
       function loadExistingRecords(sortBy) {
         runs(function () {
           return setup().then(function () {
-            return doAndOn(createFactory(google), 'uptodate').then(function () {
-              return doAndOn(createFactory(amazon), 'uptodate').then(function () {
+            return doAndOnce(createFactory(google), 'uptodate').then(function () {
+              return doAndOnce(createFactory(amazon), 'uptodate').then(function () {
                 $scope[that.model].length = 0; // clear model data
                 expect(that.adapter.at(0)).not.toBeDefined();
                 return setup(sortBy).then(function () {
@@ -271,14 +256,14 @@ console.log('should bind5');
         runs(function () {
           return setup().then(function () {
             var clonedGoogle = yngutils.clone(google), clonedAmazon = yngutils.clone(amazon);
-            return doAndOn(createFactory(google), event).then(function (args) {
+            return doAndOnce(createFactory(google), event).then(function (args) {
               if (event !== 'uptodate') {
                 var googleCreated = checkEvent ? args.event[0] : args.action[0];
                 expectScopeToEqual([googleCreated]);
                 clonedGoogle.$priority = 0;
                 expectToContain(googleCreated, clonedGoogle);
               }
-              return doAndOn(createFactory(amazon), event).then(function (args) {
+              return doAndOnce(createFactory(amazon), event).then(function (args) {
                 if (event !== 'uptodate') {
                   var amazonCreated = checkEvent ? args.event[0] : args.action[0];
                   expectScopeToEqual([googleCreated, amazonCreated]);
@@ -307,10 +292,10 @@ console.log('should bind5');
         runs(function () {
           return setup().then(function () {
             var clonedGoogle = yngutils.clone(google);
-            return doAndOn(createFactory(google), 'create').then(function (args) {
+            return doAndOnce(createFactory(google), 'create').then(function (args) {
               var clonedDoc = yngutils.clone(args.event[0]);
               clonedDoc.url = 'https://google.com';
-              return doAndOn(updateFactory(clonedDoc), event).then(function (args) {
+              return doAndOnce(updateFactory(clonedDoc), event).then(function (args) {
                 if (event !== 'uptodate') {
                   var updatedDoc = checkEvent ? args.event[0] : args.action[0];
                   expectScopeToEqual([updatedDoc]);
@@ -350,9 +335,9 @@ console.log('should bind5');
         runs(function () {
           return setup().then(function () {
             var clonedGoogle = yngutils.clone(google);
-            return doAndOn(createFactory(google), 'create').then(function (args) {
+            return doAndOnce(createFactory(google), 'create').then(function (args) {
               var docCreated = args.action[0];
-              return doAndOn(removeFactory(useId ? docCreated.$id : docCreated), event)
+              return doAndOnce(removeFactory(useId ? docCreated.$id : docCreated), event)
                 .then(function (args) {
                   expectScopeToEqual([]);
                   if (!checkEvent) {
@@ -400,9 +385,9 @@ console.log('should bind5');
         runs(function () {
           return setup().then(function () {
             var clonedGoogle = yngutils.clone(google);
-            return doAndOn(createFactory(google), 'create').then(function (args) {
+            return doAndOnce(createFactory(google), 'create').then(function (args) {
               var docCreated = args.action[0];
-              return doAndOn(setPriorityFactory(useId ? docCreated.$id : docCreated, 3), event)
+              return doAndOnce(setPriorityFactory(useId ? docCreated.$id : docCreated, 3), event)
                 .then(function (args) {
                   if (event !== 'uptodate') {
                     var docMoved = checkEvent ? args.event[0] : args.action[0];
