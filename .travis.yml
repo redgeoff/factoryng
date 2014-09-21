@@ -6,5 +6,6 @@ node_js:
 before_script:
   - 'npm install -g bower grunt-cli'
   - 'bower install'
+  - 'sleep 5'
 after_failure:
   - 'curl -X GET http://127.0.0.1:5984/_log?bytes=1000000'
