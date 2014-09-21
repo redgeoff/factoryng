@@ -16,7 +16,8 @@ function YngAdapter(name, url) {
       // jasmine.getEnv().defaultTimeoutInterval = 20000;
 
       function error(err) {
-        expect((err && err.stack ? err.stack : err)).toBe(''); // TODO: better way to report this error?
+        // TODO: better way to report this error?
+        expect((err && err.stack ? err.stack : err)).toBe('');
       }
 
       // jasmine-as-promised doesn't appear to output promise exceptions so we will do it manually
