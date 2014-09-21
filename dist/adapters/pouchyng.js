@@ -1,105 +1,184 @@
-// TODO: Option to enable encryption that uses filter pouch
-// TODO: Is there a way to modify yng-adapter so that it tests the istanbul ignore areas?
+// TODO: do we need to refactor so that can access provider before it is used, i.e. we can apply a
+// plugin before the provider is used? Should we just expose something like newProvider? Really,
+// this should sort of be hidden from the user as then the controller needs to understand logic
+// about the adapter--however, this approach might be too controlling as someone might not want to
+// have to develop a new adapter just to use a pouch plugin
 
-// TODO: It appears that if the couchdb doesn't exist then the first allDocs, executed by bind,
-// doesn't return any docs. How can one make bind "try again" until allDocs returns data? It doesn't
-// appear that there is a reliable error to key on.
+// TODO: Option to enable encryption that uses filter pouch
 
 'use strict';
 
 /* global PouchDB */
 
 angular.module('factoryng')
-  .factory('Pouchyng', ['$q', '$timeout', 'Yng', 'yngutils',
+  .factory('PouchyngCommon', ['$q', '$timeout', 'Yng', 'yngutils',
     function ($q, $timeout, Yng, yngutils) {
       return function (name, url, sortBy) {
-        var yng = new Yng(name, url, sortBy);
-        yng.copyApi(this);
-
-        var db = null, to = null, from = null, changes = null;
+        var that = this;
+        this.yng = new Yng(name, url, sortBy);
+        this.db = null;
+        this.to = null;
+        this.from = null;
+        this.changes = null;
 
         this.provider = function() {
-          return db;
+          return that.db;
         };
 
         this.bind = function (scope) {
-          if (db) { // already bound
-            return yng.bindModel(scope);
+          if (that.db) { // already bound
+            return that.yng.rebindModel(scope);
           } else {
             // use a unique id as the name to prevent duplicate db names across adapters
-            db = new PouchDB(yng.name + '_' + yng.nextId());
-            db.on('error', error);
-            return sync().then(function () {
-              yng.sortIfNeeded();
-              return yng.bindModel(scope);
-            });
+            that.db = new PouchDB(that.yng.name + '_' + that.yng.nextId());
+
+            // For some reason, pouch appears to require more event listeners than the default 11.
+            // Pouch appears to register several 'destroyed' handlers. Is this really necessary?
+            that.db.setMaxListeners(20);
+
+            that.yng.scope = scope;
+            that.db.on('error', that.yng.error);
+            return sync();
           }
         };
+
+        function syncError(err) {
+          // Appears we need to ignore error events with null parameters
+          /* istanbul ignore if */
+          if (err) {
+            that.yng.error(err);
+          }
+        }
+
+        function onUpToDate() {
+          that.yng.emit('uptodate');
+        }
+
+        function onLoadFactory(defer) {
+          return function () {
+            return that.map().then(function () {
+              that.yng.sortIfNeeded();
+              return that.yng.bindModel(that.yng.scope).then(defer.resolve);
+            });
+          };
+        }
+
+        function sync() {
+          return that.db.info().then(function (info) {
+            var defer = $q.defer();
+            /* jshint camelcase: false */
+            that.changes = that.db.changes({
+              since: info.update_seq,
+              live: true
+            });
+            that.registerListeners();
+            var opts = { live: true }, remoteCouch = that.yng.url + '/' + that.yng.name;
+            that.to = that.db.replicate.to(remoteCouch, opts, syncError);
+            that.from = that.db.replicate.from(remoteCouch, opts, syncError)
+                               .once('uptodate', onLoadFactory(defer))
+                               .on('uptodate', onUpToDate)
+                               .once('error', onLoadFactory(defer))
+                               .on('complete', onUpToDate);
+            return defer.promise;
+          });
+        }
+
+        this.cancel = function () {
+          /* istanbul ignore next */
+          if (that.changes) {
+            that.changes.cancel();
+          }
+          /* istanbul ignore next */
+          if (that.to) {
+            that.to.cancel();
+          }
+          /* istanbul ignore next */
+          if (that.from) {
+            that.from.cancel();
+          }
+        };
+
+        function destroyRemoteDb () {
+          // Calling db.destroy() only removes the local database, we need to remove the remote
+          // database separately
+          var remoteDb = new PouchDB(that.yng.url + '/' + that.yng.name);
+          return yngutils.doAndOnce(function () {
+            return remoteDb.destroy();
+          }, 'destroyed', remoteDb);
+        }
+
+        this.destroy = function (preserveRemote) {
+          that.cancel();
+
+          var localPromise = yngutils.doAndOnce(function () {
+            return that.db.destroy();
+          }, 'destroyed', this.db);
+          var promises = [localPromise];
+
+          if (!preserveRemote) {
+            promises.push(destroyRemoteDb());
+          }
+
+          return $q.all(promises).then(function () {
+            return that.yng.destroy();
+          });
+        };
+
+        this.copyApi = function (obj) {
+          that.yng.copyApi(obj);
+
+          var fns = [
+            'provider',
+            'bind',
+            'destroy'
+          ];
+          yngutils.copyFns(fns, that, obj);
+        };
+
+      };
+  }]);
+// TODO: Option to enable encryption that uses filter pouch
+
+'use strict';
+
+angular.module('factoryng')
+  .factory('Pouchyng', ['$q', '$timeout', 'Yng', 'yngutils', 'PouchyngCommon',
+    function ($q, $timeout, Yng, yngutils, PouchyngCommon) {
+      return function (name, url, sortBy) {
+        var common = new PouchyngCommon(name, url, sortBy);
+        common.copyApi(this);
 
         function toDoc(doc) {
           doc.$id = doc._id;
           return doc;
         }
 
-        function map() {
+        common.map = function () {
           /* jshint camelcase: false */
-          return db.allDocs({ include_docs: true }).then(function (doc) {
-            var promises = [];
-
-            // TODO: need to patch pouchyng and delta-pouchyng so that the bind doesn't return until
-            // there is data before requiring code coverage of the following
-            /* istanbul ignore next */
-            doc.rows.forEach(function (el) {
-              el.doc.$id = el.id;
-              promises.push(yng.createDoc(el.doc));
+          return common.db.allDocs({ include_docs: true }).then(function (doc) {
+            return $timeout(function () {
+              doc.rows.forEach(function (el) {
+                el.doc.$id = el.id;
+                common.yng.push(el.doc);
+              });
             });
-
-            return $q.all(promises);
           });
-        }
+        };
 
-        function syncError(err) {
-          // 405, 'Method Not Allowed' generated when DB first created and not really an error
-          /* istanbul ignore next */
-          if (err && err.status !== 405) {
-            yng.error(err);
-          }
-        }
-
-        /* istanbul ignore next */
-        function error(err) {
-          yng.error(err);
-        }
-
-        function sync() {
-          return db.info().then(function (info) {
-            /* jshint camelcase: false */
-            changes = db.changes({
-              since: info.update_seq,
-              live: true
-            });
-            registerListeners();
-            var promise = map(), opts = { live: true };
-            var remoteCouch = yng.url + '/' + yng.name;
-            to = db.replicate.to(remoteCouch, opts, syncError);
-            from = db.replicate.from(remoteCouch, opts, syncError);
-            return promise;
-          });
-        }
-
-        function registerListeners() {
-          db.on('create', yng.applyFactory(onCreate))
-            .on('update', yng.applyFactory(onUpdate))
-            .on('delete', yng.applyFactory(onDelete));
-        }
+        common.registerListeners = function () {
+          var onDel = onDelete; // needed or else jshint reports onDelete not used
+          common.db.on('create', onCreate)
+                   .on('update', onUpdate)
+                   .on('delete', onDel);
+        };
 
         this.create = function (doc) {
-          yng.setPriorityIfNeeded(doc);
-          return db.post(doc).then(function (createdDoc) {
+          common.yng.setPriorityIfNeeded(doc);
+          return common.db.post(doc).then(function (createdDoc) {
             doc.$id = createdDoc.id;
             doc._id = createdDoc.id;
             doc._rev = createdDoc.rev;
-            yng.push(doc);
+            common.yng.push(doc);
             return doc;
           });
         };
@@ -108,72 +187,55 @@ angular.module('factoryng')
           doc._id = doc.$id;
           var clonedDoc = yngutils.clone(doc);
           delete(clonedDoc.$id);
-          return db.put(clonedDoc).then(function (updatedDoc) {
+          return common.db.put(clonedDoc).then(function (updatedDoc) {
             doc._rev = updatedDoc.rev;
-            yng.set(doc);
+            common.yng.set(doc);
             return doc;
           });
         };
 
         this.remove = function (docOrId) {
-          var id = yng.toId(docOrId), doc = yng.get(id);
-          return db.remove(doc).then(function() {
-            return yng.remove(id);
+          var id = common.yng.toId(docOrId), doc = common.yng.get(id);
+          return common.db.remove(doc).then(function() {
+            return common.yng.remove(id);
           });
         };
 
         this.setPriority = function (docOrId, priority) {
-          var id = yng.toId(docOrId), doc = yng.get(id);
+          var id = common.yng.toId(docOrId), doc = common.yng.get(id);
           doc.$priority = priority;
           doc._id = doc.$id;
           var clonedDoc = yngutils.clone(doc);
           delete(clonedDoc.$id);
-          return db.put(clonedDoc).then(function (updatedDoc) {
+          return common.db.put(clonedDoc).then(function (updatedDoc) {
             doc._rev = updatedDoc.rev;
             // Need to trigger yng-move event as pouchdb doesn't support separate move event and
             // otherwise we cannot determine if the create event was for a move
-            yng.moveDoc(doc);
+            common.yng.moveDoc(doc);
             return doc;
           });
         };
 
         function onCreate(response) {
-          yng.createDoc(toDoc(response.doc));
+          common.yng.createDoc(toDoc(response.doc));
         }
 
         function onUpdate(response) {
-          var newDoc = toDoc(response.doc), oldDoc = yng.get(newDoc.$id);
+          var newDoc = toDoc(response.doc), oldDoc = common.yng.get(newDoc.$id);
           /* istanbul ignore next */
           if (!oldDoc) {
             // Appears we can get update events for new docs when cache is clear
-            yng.createDoc(newDoc);
+            common.yng.createDoc(newDoc);
           } else if (newDoc.$priority !== oldDoc.$priority) {
-            yng.moveDoc(newDoc);
+            common.yng.moveDoc(newDoc);
           } else {
-            yng.updateDoc(newDoc);
+            common.yng.updateDoc(newDoc);
           }
         }
 
         function onDelete(response) {
-          yng.removeDoc(response.doc._id);
+          common.yng.removeDoc(response.doc._id);
         }
-
-        function cancel() {
-          to.cancel();
-          from.cancel();
-          changes.cancel();
-        }
-
-        this.destroy = function (preserveStore) {
-          cancel();
-          if (preserveStore) {
-            return yng.destroy();
-          } else {
-            return db.destroy().then(function () {
-              return yng.destroy();
-            });
-          }
-        };
 
       };
   }]);

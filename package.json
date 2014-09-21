@@ -1,6 +1,6 @@
 {
   "name": "factoryng",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "An all-in-one angularjs factory that wraps multiple backends",
   "repository": {
     "type": "git",

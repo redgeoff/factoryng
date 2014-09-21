@@ -23,28 +23,40 @@ angular.module('factoryng')
         
           // Most adapters would call push() here and let the underlying backend notify us of the
           // change. The notification would then trigger a call to createDoc(). We don't have any
-          // underlying backend so we just go straight to calling createDoc().
-          return yng.createDoc(doc);
+          // underlying backend so we just go straight to calling createDoc() and emitting uptodate
+          return yng.createDoc(doc).then(function (createdDoc) {
+            yng.emit('uptodate');
+            return createdDoc;
+          });
         };
 
         this.update = function (doc) {  
           // Most adapters would call set() here and let the underlying backend notify us of the
           // change. The notification would then trigger a call to updateDoc(). We don't have any
-          // underlying backend so we just go straight to calling updateDoc().
-          return yng.updateDoc(doc);
+          // underlying backend so we just go straight to calling updateDoc() and emitting uptodate
+          return yng.updateDoc(doc).then(function (updatedDoc) {
+            yng.emit('uptodate');
+            return updatedDoc;
+          });
         };
 
         this.remove = function (docOrId) {  
           // Most adapters would call destroy() here and let the underlying backend notify us of the
           // change. The notification would then trigger a call to removeDoc(). We don't have any
-          // underlying backend so we just go straight to calling removeDoc().
-          return yng.removeDoc(docOrId);
+          // underlying backend so we just go straight to calling removeDoc() and emitting uptodate
+          return yng.removeDoc(docOrId).then(function (removedDoc) {
+            yng.emit('uptodate');
+            return removedDoc;
+          });
         };
 
         this.setPriority = function (docOrId, priority) {
           var id = yng.toId(docOrId), doc = yng.get(id);
           doc.$priority = priority;
-          return yng.moveDoc(doc);
+          return yng.moveDoc(doc).then(function (updatedDoc) {
+            yng.emit('uptodate');
+            return updatedDoc;
+          });
         };
       };
   }]);
