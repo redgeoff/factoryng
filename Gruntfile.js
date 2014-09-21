@@ -152,11 +152,22 @@ module.exports = function (grunt) {
 
     concat: {
       dist: {
-        // yng-utils has to be at top of concatenated file
-        src: [
-          '<%= factoryng.scripts %>/yng-utils.js',
-          '<%= factoryng.scripts %>/yng.js'],
-        dest: '<%= factoryng.dist %>/factoryng.js',
+        files: {
+          // yng-utils has to be at top of concatenated file
+          '<%= factoryng.dist %>/factoryng.js':
+            ['<%= factoryng.scripts %>/yng-utils.js',
+             '<%= factoryng.scripts %>/yng.js',
+             '<%= factoryng.scripts %>/event-shim.js',
+             'node_modules/events/events.js'],
+
+          '<%= factoryng.dist %>/adapters/pouchyng.js':
+            ['<%= factoryng.scripts %>/adapters/pouchyng-common.js',
+             '<%= factoryng.scripts %>/adapters/pouchyng.js'],
+
+          '<%= factoryng.dist %>/adapters/delta-pouchyng.js':
+            ['<%= factoryng.scripts %>/adapters/pouchyng-common.js',
+             '<%= factoryng.scripts %>/adapters/delta-pouchyng.js']
+        }
       }
     },
 
@@ -181,7 +192,11 @@ module.exports = function (grunt) {
           dest: '<%= factoryng.dist %>/adapters',
           src: [
             'adapters/*',
-            '!adapters/templatyng.js'
+            '!adapters/templatyng.js',
+            '!event-shim.js',
+            '!adapters/pouchyng-common.js',
+            '!adapters/pouchyng.js',
+            '!adapters/delta-pouchyng.js'
           ]
         }]
       }
@@ -203,6 +218,12 @@ module.exports = function (grunt) {
         branches: 100,
         src: 'scripts',
         excludes: ['scripts/adapters/templatyng.js']
+      }
+    },
+
+    execute: {
+      target: {
+        src: ['node_modules/add-cors-to-couchdb/bin.js']
       }
     }
   });
@@ -228,6 +249,7 @@ module.exports = function (grunt) {
     'clean:server',
     'clean:coverage',
     'connect:test',
+    'execute',
     'karma',
     'code-coverage-enforcer'
   ]);
