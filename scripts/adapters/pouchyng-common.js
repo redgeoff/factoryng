@@ -77,6 +77,10 @@ angular.module('factoryng')
             });
             that.registerListeners();
             var opts = { live: true }, remoteCouch = that.yng.url + '/' + that.yng.name;
+
+            // If the local pouch database doesn't already exist then we need to wait for the
+            // uptodate or error events before a call to allDocs() will return all the data in the
+            // remote database.
             that.to = that.db.replicate.to(remoteCouch, opts, syncError);
             that.from = that.db.replicate.from(remoteCouch, opts, syncError)
                                .once('uptodate', onLoadFactory(defer))
