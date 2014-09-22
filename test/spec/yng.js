@@ -208,4 +208,8 @@ describe('Service: Yng', function () {
     expect(id).toEqual(2);
   });
 
+  it('should be bound', function () {
+    yng.bound();
+  });
+
 });

@@ -1,5 +1,3 @@
-// TODO: loading widget that shows when first create adapter and then hides after bind completes
-
 'use strict';
 
 angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
@@ -33,12 +31,15 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   };
 })
 
-.controller('ListCtrl', function($scope, adapter) {
+.controller('ListCtrl', function($scope, adapter, $timeout) {
   var projects = null;
 
   adapter($scope).then(function (projs) {
     console.log('done binding');
     projects = projs;
+    $timeout(function () {
+      $scope.loaded = true; // hide loading spinner
+    });
   });
 
   var updatePriorities = function () {
@@ -63,6 +64,9 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   adapter($scope).then(function (projs) {
     console.log('done binding');
     projects = projs;
+    $timeout(function () {
+      $scope.loaded = true; // hide loading spinner
+    });
   });
 
   $scope.save = function () {
@@ -85,6 +89,7 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
       $timeout(function () { // trigger UI update
         // create copy so changes can be canceled
         $scope.project = angular.copy(projects.get($routeParams.projectId));
+        $scope.loaded = true; // hide loading spinner
       });
     });
  

@@ -8,7 +8,7 @@ angular.module('factoryng')
         yng.copyApi(this);
 
         this.bind = function (scope) {
-          return yng.bindModel(scope);
+          return yng.rebindModel(scope);
         };
 
         // Note: this function doesn't guarantee a unique id, just makes it very unlikely that two

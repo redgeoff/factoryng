@@ -21,10 +21,15 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
     });
 })
 
-.controller('ListCtrl', function($scope, contacts) {
+.controller('ListCtrl', function($scope, contacts, $timeout) {
+  $scope.loaded = contacts.bound(); // don't show spinner if already bound
+
   contacts.bind($scope).then(function () {
     console.log('done binding');
     // console.log($scope.contacts);
+    $timeout(function () {
+      $scope.loaded = true; // hide loading spinner
+    });
   });
 
   var updatePriorities = function () {
@@ -44,9 +49,14 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
 })
  
 .controller('CreateCtrl', function($scope, $location, $timeout, contacts) {
+  $scope.loaded = contacts.bound(); // don't show spinner if already bound
+
   contacts.bind($scope).then(function () {
     console.log('done binding');
     // console.log($scope.contacts);
+    $timeout(function () {
+      $scope.loaded = true; // hide loading spinner
+    });
   });
 
   $scope.save = function () {
@@ -61,12 +71,15 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
  
 .controller('EditCtrl',
   function($scope, $location, $routeParams, $timeout, contacts) {
+    $scope.loaded = contacts.bound(); // don't show spinner if already bound
+
     contacts.bind($scope).then(function () {
       console.log('done binding');
       // console.log($scope.contacts);
       $timeout(function () { // trigger UI update
         // create copy so changes can be canceled
         $scope.contact = angular.copy(contacts.get($routeParams.contactId));
+        $scope.loaded = true; // hide loading spinner
       });
     });
  

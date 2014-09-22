@@ -15,6 +15,10 @@ angular.module('factoryng')
           return firebase;
         };
 
+        this.bound = function () {
+          return firebase ? true : false;
+        };
+
         function onLoadFactory(defer) {
           return function (snapshot) {
             map(snapshot).then(function () {
@@ -28,7 +32,7 @@ angular.module('factoryng')
         }
 
         this.bind = function (scope) {
-          if (firebase) { // already bound
+          if (this.bound()) { // already bound
             return yng.rebindModel(scope);
           } else {
             firebase = new Firebase(yng.url);
