@@ -1,6 +1,6 @@
 {
   "name": "factoryng",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "An all-in-one angularjs factory that wraps multiple backends",
   "main": "dist/factoryng.js",
   "homepage": "https://github.com/redgeoff/factoryng",

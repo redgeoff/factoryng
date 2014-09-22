@@ -175,6 +175,10 @@ angular.module('factoryng')
       });
     };
 
+    Yng.prototype.bound = function () {
+      return true;
+    };
+
     Yng.prototype.rebindModel = function (scope) {
       var that = this;
       return this.bindModel(scope).then(function () {
@@ -289,6 +293,7 @@ angular.module('factoryng')
         'cleanup',
         'provider',
         'destroy',
+        'bound',
 
         'on',
         'once',

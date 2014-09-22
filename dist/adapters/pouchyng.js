@@ -21,12 +21,16 @@ angular.module('factoryng')
         this.from = null;
         this.changes = null;
 
-        this.provider = function() {
+        this.provider = function () {
           return that.db;
         };
 
+        this.bound = function () {
+          return that.db ? true : false;
+        };
+
         this.bind = function (scope) {
-          if (that.db) { // already bound
+          if (that.bound()) { // already bound
             return that.yng.rebindModel(scope);
           } else {
             // use a unique id as the name to prevent duplicate db names across adapters
@@ -129,6 +133,7 @@ angular.module('factoryng')
 
           var fns = [
             'provider',
+            'bound',
             'bind',
             'destroy'
           ];
