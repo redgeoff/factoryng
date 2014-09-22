@@ -19,6 +19,8 @@ Live Demo: Contacts (Simple Example)
 ----
 [Contacts Demo](http://redgeoff.github.io/factoryng/examples/contacts)
 
+And, the [Contacts Demo Source Code](https://github.com/redgeoff/factoryng/blob/master/examples/contacts/contact.js)
+
 Usage
 ----
 **Download via bower**
