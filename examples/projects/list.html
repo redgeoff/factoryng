@@ -1,5 +1,6 @@
 <input type="text" class="form-control" ng-model="search" class="search-query" placeholder="Search">
-<table class="table">
+<div style="margin-top:20px" ng-show="!loaded"><i class="fa fa-refresh fa-spin fa-3x"></i></div>
+<table class="table" ng-show="loaded">
   <thead>
   <tr>
     <th></th>

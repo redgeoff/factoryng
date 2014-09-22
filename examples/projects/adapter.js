@@ -13,6 +13,7 @@ angular.module('adapters', ['factoryng', 'oc.lazyLoad'])
         }).then(function () {
           var Adapter = $injector.get(a.name); // dynamically inject the adapter
           adapters[a.name] = new Adapter('projects', a.url, yngutils.ASC);
+          scope.loaded = adapters[a.name].bound(); // don't show spinner if already bound
           return adapters[a.name].bind(scope).then(function () {
             // Most production environments would not call cleanup() here and would instead call it
             // via a background process like a cron job. We will call cleanup() here as we don't
