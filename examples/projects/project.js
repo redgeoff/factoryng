@@ -49,6 +49,7 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   };
 
   $scope.sortableOptions = {
+    handle: '.dragArea',
     stop: function() {
       updatePriorities();
     },

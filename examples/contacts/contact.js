@@ -39,6 +39,7 @@ angular.module('contact', ['ngRoute', 'ui.sortable', 'contacts'])
   };
 
   $scope.sortableOptions = {
+    handle: '.dragArea',
     stop: function() {
       updatePriorities();
     },
