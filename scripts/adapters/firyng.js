@@ -141,8 +141,8 @@ angular.module('factoryng')
           });
         }
 
-        this.destroy = function (preserveStore) {
-          if (preserveStore) {
+        this.destroy = function (preserveRemote) {
+          if (preserveRemote) {
             return yng.destroy();
           } else {
             var defer = $q.defer();
