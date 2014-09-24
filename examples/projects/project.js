@@ -31,15 +31,13 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   };
 })
 
-.controller('ListCtrl', function($scope, adapter, $timeout) {
+.controller('ListCtrl', function($scope, adapter) {
   var projects = null;
 
   adapter($scope).then(function (projs) {
     console.log('done binding');
     projects = projs;
-    $timeout(function () {
-      $scope.loaded = true; // hide loading spinner
-    });
+    $scope.loaded = true; // hide loading spinner
   });
 
   var updatePriorities = function () {
@@ -58,56 +56,46 @@ angular.module('project', ['ngRoute', 'ui.sortable', 'adapters'])
   };
 })
  
-.controller('CreateCtrl', function($scope, $location, $timeout, adapter) {
+.controller('CreateCtrl', function($scope, $location, adapter) {
   var projects = null;
 
   adapter($scope).then(function (projs) {
     console.log('done binding');
     projects = projs;
-    $timeout(function () {
-      $scope.loaded = true; // hide loading spinner
-    });
+    $scope.loaded = true; // hide loading spinner
   });
 
   $scope.save = function () {
     projects.create($scope.project).then(function(/* doc */) {
       console.log('done adding doc');
-      $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
-        $location.path('/');
-      });
+      $location.path('/');
     });
   };
 })
  
 .controller('EditCtrl',
-  function($scope, $location, $routeParams, adapter, $timeout) {
+  function($scope, $location, $routeParams, adapter) {
     var projects = null;
 
     adapter($scope).then(function (projs) {
       console.log('done binding');
       projects = projs;
-      $timeout(function () { // trigger UI update
-        // create copy so changes can be canceled
-        $scope.project = angular.copy(projects.get($routeParams.projectId));
-        $scope.loaded = true; // hide loading spinner
-      });
+      // create copy so changes can be canceled
+      $scope.project = angular.copy(projects.get($routeParams.projectId));
+      $scope.loaded = true; // hide loading spinner
     });
  
     $scope.destroy = function () {
       projects.remove($scope.project).then(function () {
         console.log('done removing');
-        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
-          $location.path('/');
-        });
+        $location.path('/');
       });
     };
  
     $scope.save = function () {
       projects.update($scope.project).then(function () {
         console.log('done saving');
-        $timeout(function () { // wrap in $timeout as promise resolves "outside" of angular
-          $location.path('/');
-        });
+        $location.path('/');
       });
     };
 });

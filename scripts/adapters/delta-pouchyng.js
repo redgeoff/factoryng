@@ -11,11 +11,9 @@ angular.module('factoryng')
 
         common.map = function () {
           return common.db.all().then(function (docs) {
-            return $timeout(function () {
-              yngutils.forEach(docs, function (doc) {
-                delete(doc._rev);
-                common.yng.push(doc);
-              });
+            yngutils.forEach(docs, function (doc) {
+              delete(doc._rev);
+              common.yng.push(doc);
             });
           });
         };
@@ -29,38 +27,46 @@ angular.module('factoryng')
         };
 
         this.create = function (doc) {
-          common.yng.setPriorityIfNeeded(doc);
-          return common.db.save(doc).then(function (createdDoc) {
-            doc.$id = createdDoc.$id;
-            common.yng.push(doc);
-            return doc;
+          return $timeout(function () {
+            common.yng.setPriorityIfNeeded(doc);
+            return common.db.save(doc).then(function (createdDoc) {
+              doc.$id = createdDoc.$id;
+              common.yng.push(doc);
+              return doc;
+            });
           });
         };
 
         this.update = function (doc) {
-          var oldDoc = common.yng.get(doc.$id);
-          return common.db.saveChanges(oldDoc, doc).then(function (changes) {
-            var newDoc = common.db.merge(oldDoc, changes);
-            common.yng.set(newDoc);
-            return doc;
+          return $timeout(function () {
+            var oldDoc = common.yng.get(doc.$id);
+            return common.db.saveChanges(oldDoc, doc).then(function (changes) {
+              var newDoc = common.db.merge(oldDoc, changes);
+              common.yng.set(newDoc);
+              return doc;
+            });
           });
         };
 
         this.remove = function (docOrId) {
-          return common.db.delete(docOrId).then(function (deletedDoc) {
-            return common.yng.remove(deletedDoc.$id);
+          return $timeout(function () {
+            return common.db.delete(docOrId).then(function (deletedDoc) {
+              return common.yng.remove(deletedDoc.$id);
+            });
           });
         };
 
         this.setPriority = function (docOrId, priority) {
-          var id = common.yng.toId(docOrId), doc = common.yng.get(id);
-          var newDoc = yngutils.clone(doc);
-          newDoc.$priority = priority;
-          return common.db.saveChanges(doc, newDoc).then(function (/* changes */) {
-            // Need to trigger yng-move event as pouchdb doesn't support separate move event and
-            // otherwise we cannot determine if the update event was for a move
-            common.yng.moveDoc(newDoc);
-            return doc;
+          return $timeout(function () {
+            var id = common.yng.toId(docOrId), doc = common.yng.get(id);
+            var newDoc = yngutils.clone(doc);
+            newDoc.$priority = priority;
+            return common.db.saveChanges(doc, newDoc).then(function (/* changes */) {
+              // Need to trigger move event as pouchdb doesn't support separate move event and
+              // otherwise we cannot determine if the update event was for a move
+              common.yng.moveDoc(newDoc);
+              return doc;
+            });
           });
         };
 

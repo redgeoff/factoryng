@@ -17,11 +17,9 @@ angular.module('factoryng')
         common.map = function () {
           /* jshint camelcase: false */
           return common.db.allDocs({ include_docs: true }).then(function (doc) {
-            return $timeout(function () {
-              doc.rows.forEach(function (el) {
-                el.doc.$id = el.id;
-                common.yng.push(el.doc);
-              });
+            doc.rows.forEach(function (el) {
+              el.doc.$id = el.id;
+              common.yng.push(el.doc);
             });
           });
         };
@@ -34,46 +32,54 @@ angular.module('factoryng')
         };
 
         this.create = function (doc) {
-          common.yng.setPriorityIfNeeded(doc);
-          return common.db.post(doc).then(function (createdDoc) {
-            doc.$id = createdDoc.id;
-            doc._id = createdDoc.id;
-            doc._rev = createdDoc.rev;
-            common.yng.push(doc);
-            return doc;
+          return $timeout(function () {
+            common.yng.setPriorityIfNeeded(doc);
+            return common.db.post(doc).then(function (createdDoc) {
+              doc.$id = createdDoc.id;
+              doc._id = createdDoc.id;
+              doc._rev = createdDoc.rev;
+              common.yng.push(doc);
+              return doc;
+            });
           });
         };
 
         this.update = function (doc) {
-          doc._id = doc.$id;
-          var clonedDoc = yngutils.clone(doc);
-          delete(clonedDoc.$id);
-          return common.db.put(clonedDoc).then(function (updatedDoc) {
-            doc._rev = updatedDoc.rev;
-            common.yng.set(doc);
-            return doc;
+          return $timeout(function () {
+            doc._id = doc.$id;
+            var clonedDoc = yngutils.clone(doc);
+            delete(clonedDoc.$id);
+            return common.db.put(clonedDoc).then(function (updatedDoc) {
+              doc._rev = updatedDoc.rev;
+              common.yng.set(doc);
+              return doc;
+            });
           });
         };
 
         this.remove = function (docOrId) {
-          var id = common.yng.toId(docOrId), doc = common.yng.get(id);
-          return common.db.remove(doc).then(function() {
-            return common.yng.remove(id);
+          return $timeout(function () {
+            var id = common.yng.toId(docOrId), doc = common.yng.get(id);
+            return common.db.remove(doc).then(function() {
+              return common.yng.remove(id);
+            });
           });
         };
 
         this.setPriority = function (docOrId, priority) {
-          var id = common.yng.toId(docOrId), doc = common.yng.get(id);
-          doc.$priority = priority;
-          doc._id = doc.$id;
-          var clonedDoc = yngutils.clone(doc);
-          delete(clonedDoc.$id);
-          return common.db.put(clonedDoc).then(function (updatedDoc) {
-            doc._rev = updatedDoc.rev;
-            // Need to trigger yng-move event as pouchdb doesn't support separate move event and
-            // otherwise we cannot determine if the create event was for a move
-            common.yng.moveDoc(doc);
-            return doc;
+          return $timeout(function () {
+            var id = common.yng.toId(docOrId), doc = common.yng.get(id);
+            doc.$priority = priority;
+            doc._id = doc.$id;
+            var clonedDoc = yngutils.clone(doc);
+            delete(clonedDoc.$id);
+            return common.db.put(clonedDoc).then(function (updatedDoc) {
+              doc._rev = updatedDoc.rev;
+              // Need to trigger move event as pouchdb doesn't support separate move event and
+              // otherwise we cannot determine if the create event was for a move
+              common.yng.moveDoc(doc);
+              return doc;
+            });
           });
         };
 

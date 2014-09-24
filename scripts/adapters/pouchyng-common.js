@@ -42,7 +42,9 @@ angular.module('factoryng')
 
             that.yng.scope = scope;
             that.db.on('error', that.yng.error);
-            return sync();
+            return $timeout(function () {
+              return sync();
+            });
           }
         };
 

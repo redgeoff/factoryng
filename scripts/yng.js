@@ -139,8 +139,9 @@ angular.module('factoryng')
     };
 
     Yng.prototype.removeDoc = function (docOrId) {
-      var id = this.toId(docOrId), that = this;
+      var that = this;
       return $timeout(function () {
+        var id = that.toId(docOrId);
         var doc = that.remove(id);
         that.emit('remove', doc);
         return doc;
