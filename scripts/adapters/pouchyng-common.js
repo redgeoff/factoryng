@@ -31,7 +31,7 @@ angular.module('factoryng')
 
         this.bind = function (scope) {
           if (that.bound()) { // already bound
-            return that.yng.rebindModel(scope);
+            return that.yng.bindModel(scope);
           } else {
             // use a unique id as the name to prevent duplicate db names across adapters
             that.db = new PouchDB(that.yng.name + '_' + that.yng.nextId());

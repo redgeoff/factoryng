@@ -106,13 +106,6 @@ angular.module('factoryng')
       return true;
     };
 
-    Yng.prototype.rebindModel = function (scope) {
-      var that = this;
-      return this.bindModel(scope).then(function () {
-        that.emit('load'); // already loaded so emit event
-      });
-    };
-
     Yng.prototype.applyFactory = function (fn) {
       var that = this;
       return function () {

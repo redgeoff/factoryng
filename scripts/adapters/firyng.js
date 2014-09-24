@@ -33,7 +33,7 @@ angular.module('factoryng')
 
         this.bind = function (scope) {
           if (this.bound()) { // already bound
-            return yng.rebindModel(scope);
+            return yng.bindModel(scope);
           } else {
             firebase = new Firebase(yng.url);
             ref = firebase.child(yng.name);
