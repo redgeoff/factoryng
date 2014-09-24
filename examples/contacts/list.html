@@ -4,16 +4,14 @@
   <thead>
   <tr>
     <th><a href="#/new"><i class="glyphicon glyphicon-plus"></i></a></th>
-    <th>Name</th>
-    <th>Email</th>
+    <th></th>
     <th></th>
   </tr>
   </thead>
   <tbody ui-sortable="sortableOptions" ng-model="contacts">
   <tr ng-repeat="contact in contacts | filter:search track by $index">
     <td><a href="#/edit/{{contact.$id}}"><i class="glyphicon glyphicon-pencil"></i></a></td>
-    <td>{{contact.name}}</td>
-    <td>{{contact.email}}</td>
+    <td>{{contact.name}}<br/>{{contact.email}}</td>
     <td><i class="glyphicon glyphicon-move dragArea" style="cursor:pointer"></i></td>
   </tr>
   </tbody>

@@ -4,16 +4,14 @@
   <thead>
   <tr>
     <th><a href="#/new"><i class="glyphicon glyphicon-plus"></i></a></th>
-    <th>Project</th>
-    <th>Website</th>
+    <th></th>
     <th></th>
   </tr>
   </thead>
   <tbody ui-sortable="sortableOptions" ng-model="projects">
   <tr ng-repeat="project in projects | filter:search track by $index ">
     <td><a href="#/edit/{{project.$id}}"><i class="glyphicon glyphicon-pencil"></i></a></td>
-    <td><a href="{{project.site}}" target="_blank">{{project.name}}</a></td>
-    <td>{{project.site}}</td>
+    <td><a href="{{project.site}}" target="_blank">{{project.name}}</a><br/>{{project.site}}</td>
     <td><i class="glyphicon glyphicon-move dragArea" style="cursor:pointer"></i></td>
   </tr>
   </tbody>
