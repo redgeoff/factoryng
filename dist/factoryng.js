@@ -179,13 +179,6 @@ angular.module('factoryng')
       return true;
     };
 
-    Yng.prototype.rebindModel = function (scope) {
-      var that = this;
-      return this.bindModel(scope).then(function () {
-        that.emit('load'); // already loaded so emit event
-      });
-    };
-
     Yng.prototype.applyFactory = function (fn) {
       var that = this;
       return function () {
@@ -212,8 +205,9 @@ angular.module('factoryng')
     };
 
     Yng.prototype.removeDoc = function (docOrId) {
-      var id = this.toId(docOrId), that = this;
+      var that = this;
       return $timeout(function () {
+        var id = that.toId(docOrId);
         var doc = that.remove(id);
         that.emit('remove', doc);
         return doc;
