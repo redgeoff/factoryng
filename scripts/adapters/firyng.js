@@ -98,13 +98,6 @@ angular.module('factoryng')
           });
         };
 
-// this.remove = function (docOrId) {
-//   var id = yng.toId(docOrId);
-//   ref.child(id).remove();
-//   var doc = yng.remove(id);
-//   return $q.when(doc);
-// };
-
         this.remove = function (docOrId) {
           return $timeout(function () {
             var id = yng.toId(docOrId);
