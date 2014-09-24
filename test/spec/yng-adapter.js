@@ -1,4 +1,7 @@
 
+// TODO: test to make sure that bind, create, update, delete and setPriority return promise wrapped
+// in $q, i.e. schedules digest cycle
+
 // TODO: test in chrome and firefox???
 
 'use strict';
@@ -40,10 +43,14 @@ function YngAdapter(name, url) {
           ms = fn;
         }
         setTimeout(function () {
-          if (yngutils.isFunction(fn)) {
-            defer.resolve(fn());
-          } else {
-            defer.resolve();
+          try {
+            if (yngutils.isFunction(fn)) {
+              defer.resolve(fn());
+            } else {
+              defer.resolve();
+            }
+          } catch (err) {
+            defer.reject(err);
           }
         }, ms);
         return defer.promise;
@@ -184,6 +191,22 @@ function YngAdapter(name, url) {
         }
         expect(item).toEqual(expected);
       }
+
+      // destory first in case last test failed and left data in the remote store
+      it('should destory', function () {
+        runs(function () {
+          return setup().then(function () {
+            return that.adapter.create(google).then(function () {
+              return that.adapter.create(amazon).then(function () {
+                return that.adapter.destroy().then(function () {
+                  destroyed = true;
+                  expect(that.adapter.length() === 0);
+                });
+              });
+            });
+          });
+        });
+      });
 
       it('should bind', function () {
         runs(function () {
@@ -373,9 +396,11 @@ function YngAdapter(name, url) {
       it('remove should throw error', function () {
         runs(function () {
           return setup().then(function () {
-            expect(function () {
-              that.adapter.remove({ foo: 'boo' });
-            }).toThrow();
+            return that.adapter.remove({ foo: 'boo' }).then(function () {
+              error('should not execute this');
+            }).catch(function (/* err */) {
+              // should execute this
+            });
           });
         });
       });
@@ -419,9 +444,11 @@ function YngAdapter(name, url) {
       it('setPriority should throw error', function () {
         runs(function () {
           return setup().then(function () {
-            expect(function () {
-              that.adapter.setPriority({ foo: 'boo' }, 3);
-            }).toThrow();
+            return that.adapter.setPriority({ foo: 'boo' }, 3).then(function () {
+              error('should not execute this');
+            }).catch(function (/* err */) {
+              // should execute this
+            });
           });
         });
       });
@@ -430,21 +457,6 @@ function YngAdapter(name, url) {
         runs(function () {
           return setup().then(function () {
             return that.adapter.cleanup();
-          });
-        });
-      });
-
-      it('should destory', function () {
-        runs(function () {
-          return setup().then(function () {
-            return that.adapter.create(google).then(function () {
-              return that.adapter.create(amazon).then(function () {
-                return that.adapter.destroy().then(function () {
-                  destroyed = true;
-                  expect(that.adapter.length() === 0);
-                });
-              });
-            });
           });
         });
       });

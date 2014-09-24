@@ -51,11 +51,14 @@ angular.module('factoryng')
         };
 
         this.setPriority = function (docOrId, priority) {
-          var id = yng.toId(docOrId), doc = yng.get(id);
-          doc.$priority = priority;
-          return yng.moveDoc(doc).then(function (updatedDoc) {
-            yng.emit('uptodate');
-            return updatedDoc;
+          return $timeout(function () {
+            // Need to wrap in $q promise in case error thrown by yng.toId()
+            var id = yng.toId(docOrId), doc = yng.get(id);
+            doc.$priority = priority;
+            return yng.moveDoc(doc).then(function (updatedDoc) {
+              yng.emit('uptodate');
+              return updatedDoc;
+            });
           });
         };
       };

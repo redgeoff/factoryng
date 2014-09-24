@@ -21,13 +21,13 @@ angular.module('factoryng')
 
         function onLoadFactory(defer) {
           return function (snapshot) {
-            map(snapshot).then(function () {
-              // Firebase automatically sorts in ascending order
-              if (yng.sortBy && yng.sortBy !== yngutils.ASC) {
-                yng.sortIfNeeded();
-              }
-              return yng.bindModel(yng.scope).then(defer.resolve);
-            });
+            map(snapshot);
+
+            // Firebase automatically sorts in ascending order
+            if (yng.sortBy && yng.sortBy !== yngutils.ASC) {
+              yng.sortIfNeeded();
+            }
+            return yng.bindModel(yng.scope).then(defer.resolve);
           };
         }
 
@@ -59,18 +59,16 @@ angular.module('factoryng')
         }
 
         function map(snapshot) {
-          return $timeout(function () {
-            snapshot.forEach(function (childSnapshot) {
-              yng.push(toDoc(childSnapshot));
-            });
+          snapshot.forEach(function (childSnapshot) {
+            yng.push(toDoc(childSnapshot));
           });
         }
 
         function registerListeners() {
-          ref.on('child_added', yng.applyFactory(onChildAdded));
-          ref.on('child_changed', yng.applyFactory(onChildChanged));
-          ref.on('child_removed', yng.applyFactory(onChildRemoved));
-          ref.on('child_moved', yng.applyFactory(onChildMoved));
+          ref.on('child_added', onChildAdded);
+          ref.on('child_changed', onChildChanged);
+          ref.on('child_removed', onChildRemoved);
+          ref.on('child_moved', onChildMoved);
         }
 
         function setWithPriority(ref, doc) {
@@ -82,33 +80,41 @@ angular.module('factoryng')
         }
 
         this.create = function (doc) {
-          var newDocRef = ref.push();
-          doc.$id = newDocRef.name();
-          yng.setPriorityIfNeeded(doc);
-          setWithPriority(newDocRef, doc);
-          yng.push(doc);
-          return $q.when(doc);
+          return $timeout(function () {
+            var newDocRef = ref.push();
+            doc.$id = newDocRef.name();
+            yng.setPriorityIfNeeded(doc);
+            setWithPriority(newDocRef, doc);
+            yng.push(doc);
+            return doc;
+          });
         };
 
         this.update = function (doc) {
-          setWithPriority(ref.child(doc.$id), doc);
-          yng.set(doc);
-          return $q.when(doc);
+          return $timeout(function () {
+            setWithPriority(ref.child(doc.$id), doc);
+            yng.set(doc);
+            return doc;
+          });
         };
 
         this.remove = function (docOrId) {
-          var id = yng.toId(docOrId);
-          ref.child(id).remove();
-          var doc = yng.remove(id);
-          return $q.when(doc);
+          return $timeout(function () {
+            var id = yng.toId(docOrId);
+            ref.child(id).remove();
+            var doc = yng.remove(id);
+            return doc;
+          });
         };
 
         this.setPriority = function (docOrId, priority) {
-          var id = yng.toId(docOrId);
-          ref.child(id).setPriority(priority);
-          yng.setProperty(id, '$priority', priority);
-          var doc = yng.get(id);
-          return $q.when(doc);
+          return $timeout(function () {
+            var id = yng.toId(docOrId);
+            ref.child(id).setPriority(priority);
+            yng.setProperty(id, '$priority', priority);
+            var doc = yng.get(id);
+            return doc;
+          });
         };
 
         function onChildAdded(snapshot) {
