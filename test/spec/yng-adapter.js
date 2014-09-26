@@ -16,7 +16,7 @@ function YngAdapter(name, url) {
 
     describe('Service: ' + name, function () {
 
-      // jasmine.getEnv().defaultTimeoutInterval = 20000;
+      jasmine.getEnv().defaultTimeoutInterval = 8000; // Increase timeout for Travis CI
 
       function error(err) {
         // TODO: better way to report this error?
