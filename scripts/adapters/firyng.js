@@ -9,14 +9,10 @@ angular.module('factoryng')
         var yng = new Yng(name, url, sortBy);
         yng.copyApi(this);
 
-        var firebase = null, ref = null;
+        var firebase = new Firebase(yng.url), ref = null;
 
         this.provider = function() {
           return firebase;
-        };
-
-        this.bound = function () {
-          return firebase ? true : false;
         };
 
         function onLoadFactory(defer) {
@@ -35,7 +31,6 @@ angular.module('factoryng')
           if (this.bound()) { // already bound
             return yng.bindModel(scope);
           } else {
-            firebase = new Firebase(yng.url);
             ref = firebase.child(yng.name);
 
             // Unfortunately, there is a little inefficiency here as we need bind to resolve the

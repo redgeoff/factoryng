@@ -103,7 +103,7 @@ angular.module('factoryng')
     };
 
     Yng.prototype.bound = function () {
-      return true;
+      return this.scope && this.scope[this.name] ? true : false;
     };
 
     Yng.prototype.applyFactory = function (fn) {
