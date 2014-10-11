@@ -129,7 +129,6 @@ angular.module('factoryng')
 
           var fns = [
             'provider',
-            'bound',
             'bind',
             'destroy'
           ];
