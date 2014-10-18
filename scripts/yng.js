@@ -15,6 +15,7 @@ angular.module('factoryng')
       this.map = {};
       this.sorting = false;
       this.scope = null;
+      this.props = null;
     };
 
     // We define our own event emitter instead of using angular's as it is possible that two
@@ -198,6 +199,14 @@ angular.module('factoryng')
       return ++id;
     };
 
+    Yng.prototype.properties = function (properties) {
+      if (typeof properties === 'undefined') {
+        return this.props;
+      } else {
+        this.props = properties;
+      }
+    };
+
     Yng.prototype.copyApi = function (obj) {
       var fns = [
         'sortIfNeeded',
@@ -215,6 +224,7 @@ angular.module('factoryng')
         'provider',
         'destroy',
         'bound',
+        'properties',
 
         'on',
         'once',
