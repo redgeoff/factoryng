@@ -15,7 +15,7 @@ angular.module('factoryng')
       this.map = {};
       this.sorting = false;
       this.scope = null;
-      this.props = null;
+      this.props = {};
     };
 
     // We define our own event emitter instead of using angular's as it is possible that two

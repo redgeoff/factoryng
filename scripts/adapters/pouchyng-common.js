@@ -79,7 +79,8 @@ angular.module('factoryng')
 
         function replicate(defer) {
           var toOpts = { live: true }, frOpts = toOpts,
-              remoteCouch = that.yng.url + '/' + that.yng.name;
+              remoteCouch = that.yng.url + '/' +
+                (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name);
           toOpts = yngutils.merge(toOpts, yngutils.get(that.yng.props, 'to', 'opts'));
           frOpts = yngutils.merge(frOpts, yngutils.get(that.yng.props, 'from', 'opts'));
 
@@ -122,7 +123,8 @@ angular.module('factoryng')
         function destroyRemoteDb () {
           // Calling db.destroy() only removes the local database, we need to remove the remote
           // database separately
-          var remoteDb = new PouchDB(that.yng.url + '/' + that.yng.name);
+          var remoteDb = new PouchDB(that.yng.url + '/' +
+                (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name));
           return yngutils.doAndOnce(function () {
             return remoteDb.destroy();
           }, 'destroyed', remoteDb);
