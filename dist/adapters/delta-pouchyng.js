@@ -10,6 +10,17 @@ angular.module('factoryng')
       return function (name, url, sortBy) {
         var that = this;
         this.yng = new Yng(name, url, sortBy);
+
+        var config = {
+          opts: {
+            filter: function (doc) {
+              // Ignore design docs by default
+              return doc._id.indexOf('_design') !== 0;
+            }
+          }
+        };
+        this.yng.props = { changes: config, to: config, from: config };
+
         this.db = null;
         this.to = null;
         this.from = null;
@@ -59,26 +70,36 @@ angular.module('factoryng')
           };
         }
 
+        function listenForChanges(info) {
+          /* jshint camelcase: false */
+          var chOpts = { since: info.update_seq, live: true };
+          chOpts = yngutils.merge(chOpts, yngutils.get(that.yng.props, 'changes', 'opts'));
+          that.changes = that.db.changes(chOpts);
+        }
+
+        function replicate(defer) {
+          var toOpts = { live: true }, frOpts = toOpts,
+              remoteCouch = that.yng.url + '/' + that.yng.name;
+          toOpts = yngutils.merge(toOpts, yngutils.get(that.yng.props, 'to', 'opts'));
+          frOpts = yngutils.merge(frOpts, yngutils.get(that.yng.props, 'from', 'opts'));
+
+          // If the local pouch database doesn't already exist then we need to wait for the
+          // uptodate or error events before a call to allDocs() will return all the data in the
+          // remote database.
+          that.to = that.db.replicate.to(remoteCouch, toOpts, syncError);
+          that.from = that.db.replicate.from(remoteCouch, frOpts, syncError)
+                             .once('uptodate', onLoadFactory(defer))
+                             .on('uptodate', onUpToDate)
+                             .once('error', onLoadFactory(defer))
+                             .on('complete', onUpToDate);
+        }
+
         function sync() {
           return that.db.info().then(function (info) {
             var defer = $q.defer();
-            /* jshint camelcase: false */
-            that.changes = that.db.changes({
-              since: info.update_seq,
-              live: true
-            });
+            listenForChanges(info);
             that.registerListeners();
-            var opts = { live: true }, remoteCouch = that.yng.url + '/' + that.yng.name;
-
-            // If the local pouch database doesn't already exist then we need to wait for the
-            // uptodate or error events before a call to allDocs() will return all the data in the
-            // remote database.
-            that.to = that.db.replicate.to(remoteCouch, opts, syncError);
-            that.from = that.db.replicate.from(remoteCouch, opts, syncError)
-                               .once('uptodate', onLoadFactory(defer))
-                               .on('uptodate', onUpToDate)
-                               .once('error', onLoadFactory(defer))
-                               .on('complete', onUpToDate);
+            replicate(defer);
             return defer.promise;
           });
         }
@@ -129,7 +150,6 @@ angular.module('factoryng')
 
           var fns = [
             'provider',
-            'bound',
             'bind',
             'destroy'
           ];
