@@ -9,7 +9,7 @@ angular.module('factoryng')
         var yng = new Yng(name, url, sortBy);
         yng.copyApi(this);
 
-        var firebase = new Firebase(yng.url), ref = null;
+        var firebase = new Firebase(yng.url), ref = null, userRef = null;
 
         this.provider = function() {
           return firebase;
@@ -31,7 +31,12 @@ angular.module('factoryng')
           if (this.bound()) { // already bound
             return yng.bindModel(scope);
           } else {
-            ref = firebase.child(yng.name);
+            if (yngutils.get(yng.props, 'user')) {
+              userRef = firebase.child(yng.props.user);
+              ref = userRef.child(yng.name);
+            } else {
+              ref = firebase.child(yng.name);
+            }
 
             // Unfortunately, there is a little inefficiency here as we need bind to resolve the
             // full model, but if there is data then 'child_added' events will still be emitted for

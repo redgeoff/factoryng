@@ -138,7 +138,7 @@ function YngAdapter(name, url) {
         };
       }
 
-      function setup(sortBy) {
+      function setup(sortBy, user) {
         var promise = null;
         if (that.adapter) {
           promise = that.adapter.destroy(true); // prevent memory leak
@@ -146,6 +146,9 @@ function YngAdapter(name, url) {
           promise = $q.when();
         }
         that.adapter = new that.Adapter(that.model, url, sortBy);
+        if (user) {
+          that.adapter.properties().user = user;
+        }
         that.adapter.on('error', error);
         return promise.then(function () {
           return that.adapter.bind($scope);
@@ -274,9 +277,9 @@ function YngAdapter(name, url) {
         });
       });
 
-      function create(event, checkEvent) {
+      function create(event, checkEvent, user) {
         runs(function () {
-          return setup().then(function () {
+          return setup(null, user).then(function () {
             var clonedGoogle = yngutils.clone(google), clonedAmazon = yngutils.clone(amazon);
             return doAndOnce(createFactory(google), event).then(function (args) {
               if (event !== 'uptodate') {
@@ -467,6 +470,10 @@ function YngAdapter(name, url) {
             that.adapter.provider();
           });
         });
+      });
+
+      it('should work for user', function () {
+        create('create', null, 'test_user');
       });
 
       // // TODO: Will the following work now that we have restructured pouchyng???
