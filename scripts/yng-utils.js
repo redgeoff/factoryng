@@ -70,4 +70,36 @@ angular.module('factoryng', [])
       });
     };
 
+    this.merge = function (obj1, obj2) {
+      var merged = {}, i;
+      if (obj1) {
+        for (i in obj1) {
+          merged[i] = obj1[i];
+        }
+      }
+      if (obj2) {
+        for (i in obj2) {
+          merged[i] = obj2[i];
+        }
+      }
+      return merged;
+    };
+
+    // Usage: get(object, key1 [, key2, ..., keyN])
+    this.get = function () {
+      if (!arguments || typeof arguments[0] === 'undefined') {
+        return; // returns undefined
+      }
+      var items = arguments[0];
+      for (var i = 1; i < arguments.length; i++) {
+        var k = arguments[i];
+        if (items === null || typeof items[k] === 'undefined') {
+          return;
+        } else {
+          items = items[k];
+        }
+      }
+      return items;
+    };
+
   }]);

@@ -212,4 +212,9 @@ describe('Service: Yng', function () {
     yng.bound();
   });
 
+  it('should set and get properties', function () {
+    yng.properties({ foo: 'bar' });
+    expect(yng.properties()).toEqual({ foo: 'bar' });
+  });
+
 });
