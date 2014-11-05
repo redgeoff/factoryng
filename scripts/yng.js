@@ -20,7 +20,6 @@ module.exports = function ($q, $timeout) {
   // We define our own event emitter instead of using angular's as it is possible that two
   // different adapters are bound to the same scope and we wouldn't want to have their events
   // interfere with each other.
-  // inherits(Yng, EventEmitter);
   inherits(Yng, EventEmitter);
 
   // delay to minimize sorting while receiving multiple $priority updates
