@@ -1,8 +1,7 @@
 'use strict';
 
-(function () {
+var Firyng = require('../../../scripts/adapters/firyng'), YngAdapter = require('../yng-adapter');
+
 var adapter = new YngAdapter('Firyng', 'https://firyng.firebaseio.com');
-adapter.run(function(_Firyng_) {
-  adapter.Adapter = _Firyng_;
-});
-})();
+adapter.AdapterFactory = Firyng;
+adapter.run();

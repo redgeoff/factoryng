@@ -1,8 +1,7 @@
 'use strict';
 
-(function () {
+var Memyng = require('../../../scripts/adapters/memyng'), YngAdapter = require('../yng-adapter');
+
 var adapter = new YngAdapter('Memyng');
-adapter.run(function(_Memyng_) {
-  adapter.Adapter = _Memyng_;
-}, null, null, true);
-})();
+adapter.AdapterFactory = Memyng;
+adapter.run(null, null, true);

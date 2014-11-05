@@ -1,15 +1,13 @@
 'use strict';
 
-describe('Service: yng-utils', function () {
+var expect = require('expect'), Q = require('q'), YngUtils = require('../../scripts/yng-utils');
 
-  // load the service's module
-  beforeEach(module('factoryng'));
+describe('yng-utils', function () {
 
-  // instantiate service
   var yngutils;
-  beforeEach(inject(function (_yngutils_) {
-    yngutils = _yngutils_;
-  }));
+  beforeEach(function () {
+    yngutils = new YngUtils(Q);
+  });
 
   it('should replace', function () {
     var docs = [];
@@ -62,10 +60,13 @@ describe('Service: yng-utils', function () {
         b1: 2
       }
     };
-    expect(yngutils.get()).not.toBeDefined();
+    // expect(yngutils.get()).not.toBeDefined();
+    yngutils.notDefined(yngutils.get()).should.be.true;
     expect(yngutils.get(null)).toEqual(null);
-    expect(yngutils.get(null, 'huh')).toEqual(null);
-    expect(yngutils.get(items, 'missing')).not.toBeDefined();
+    // expect(yngutils.get(null, 'huh')).toEqual(null);
+    yngutils.notDefined(yngutils.get(null, 'huh')).should.be.true;
+    // expect(yngutils.get(items, 'missing')).not.toBeDefined();
+    yngutils.notDefined(yngutils.get(items, 'missing')).should.be.true;
     expect(yngutils.get(items, 'a')).toEqual(1);
     expect(yngutils.get(items, 'b')).toEqual({ b1: 2 });
     expect(yngutils.get(items, 'b', 'b1')).toEqual(2);

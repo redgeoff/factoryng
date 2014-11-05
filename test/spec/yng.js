@@ -1,32 +1,16 @@
 'use strict';
 
-describe('Service: Yng', function () {
+var expect = require('expect'), Q = require('q'), sinon = require('sinon'),
+    utils = require('./utils'), YngUtils = require('../../scripts/yng-utils'),
+    YngFactory = require('../../scripts/yng');
 
-  // Usage: setTimeoutPromise(fn, ms), setTimeoutPromise(fn) or setTimeoutPromise(ms)
-  function setTimeoutPromise(fn, ms) {
-    var defer = $q.defer();
-    if (!yngutils.isFunction(fn)) {
-      ms = fn;
-    }
-    setTimeout(function () {
-      if (yngutils.isFunction(fn)) {
-        defer.resolve(fn());
-      } else {
-        defer.resolve();
-      }
-    }, ms);
-    return defer.promise;
-  }
-
-  // load the service's module
-  beforeEach(module('factoryng', function ($provide) {
-    // Replace $q with Q as $q requires manual manipulation of the digest and other pieces in
-    // karma
-    $provide.value('$q', Q);
-
-    // Mock $timeout so that it doesn't require a $timeout.flush()
-    $provide.value('$timeout', setTimeoutPromise);
-  }));
+describe('Yng', function () {
+  
+  var yngutils, Yng, yng, $q = Q, $timeout = utils.timeout;
+  // Replace $q with Q as $q requires manual manipulation of the digest and other pieces in karma
+  // Mock $timeout so that it doesn't require a $timeout.flush()
+  yngutils = new YngUtils($q);
+  Yng = new YngFactory($q, $timeout);
 
   var google = null, amazon = null;
   function populate(sortBy) {
@@ -36,15 +20,6 @@ describe('Service: Yng', function () {
     yng.push(google);
     yng.push(amazon);    
   }
-
-  // instantiate service
-  var Yng, yng, yngutils, $timeout, $q;
-  beforeEach(inject(function (_Yng_, _yngutils_, _$timeout_, _$q_) {
-    Yng = _Yng_;
-    yngutils = _yngutils_;
-    $timeout = _$timeout_;
-    $q = _$q_;
-  }));
 
   beforeEach(function () {
     populate();
@@ -78,18 +53,17 @@ describe('Service: Yng', function () {
     yng.sortSoonIfNeeded();
     expect(yng.at(0)).toEqual(google);
     expect(yng.at(1)).toEqual(amazon); 
-    runs(function () {
-      return setTimeoutPromise(1000).then(function () {
-        expect(yng.at(0)).toEqual(amazon);
-        expect(yng.at(1)).toEqual(google);
-      });
+    return utils.timeout(1000).then(function () {
+      expect(yng.at(0)).toEqual(amazon);
+      expect(yng.at(1)).toEqual(google);
     });
   });
 
   it('should set', function () {
     var foo = { $id: 123 };
     yng.set(foo);
-    expect(yng.get(123)).not.toBeDefined();
+    // expect(yng.get(123)).not.toBeDefined();
+    yngutils.notDefined(yng.get(123)).should.be.true;
 
     var clonedGoogle = yngutils.clone(google);
     delete(clonedGoogle.$priority);
@@ -110,16 +84,15 @@ describe('Service: Yng', function () {
     yng.remove(google.$id);
     expect(yng.length()).toEqual(1);
     expect(yng.at(0)).toEqual(amazon);
-    expect(yng.get(google.$id)).not.toBeDefined();
+    // expect(yng.get(google.$id)).not.toBeDefined();
+    yngutils.notDefined(yng.get(google.$id)).should.be.true;
   });
 
   it('should bind', function () {
     var scope = {};
-    runs(function () {
-      return yng.bindModel(scope).then(function () {
-        expect(scope[yng.name][0]).toEqual(google);
-        expect(scope[yng.name][1]).toEqual(amazon);
-      });
+    return yng.bindModel(scope).then(function () {
+      expect(scope[yng.name][0]).toEqual(google);
+      expect(scope[yng.name][1]).toEqual(amazon);
     });
   });
 
@@ -155,15 +128,14 @@ describe('Service: Yng', function () {
   });
 
   it('should cleanup', function () {
-    runs(function () {
-      return yng.cleanup();
-    });
+    return yng.cleanup();
   });
 
   it('should copyApi', function () {
     var obj = {};
     yng.copyApi(obj);
-    expect(obj.at).toBeDefined();
+    // expect(obj.at).toBeDefined();
+    yngutils.notDefined(obj.at).should.be.false;
     expect(obj.at(0)).toEqual(google);
   });
 
@@ -186,10 +158,8 @@ describe('Service: Yng', function () {
   });
 
   it('should destroy', function () {
-    runs(function () {
-      yng.destroy().then(function () {
-        expect(yng.length() === 0);
-      });
+    yng.destroy().then(function () {
+      expect(yng.length() === 0);
     });
   });
 
@@ -215,6 +185,20 @@ describe('Service: Yng', function () {
   it('should set and get properties', function () {
     yng.properties({ foo: 'bar' });
     expect(yng.properties()).toEqual({ foo: 'bar' });
+  });
+
+  it('should have unique emitters', function () {
+    var yng1 = new Yng('website1', 'http://example1.com'),
+        yng2 = new Yng('website2', 'http://example2.com');
+    var onError1 = sinon.spy();
+    yng1.on('error', onError1);
+    yng2.on('error', function () {
+      // needed or else mocha expects event handler
+    });
+    yng2.error('some error');
+    return utils.timeout(1000).then(function () {
+      onError1.called.should.equal.false;
+    });
   });
 
 });
