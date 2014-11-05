@@ -1,8 +1,8 @@
 'use strict';
 
-angular.module('adapters', ['factoryng', 'oc.lazyLoad'])
+angular.module('adapters', ['oc.lazyLoad'])
 
-  .factory('adapter', function(yngutils, $rootScope, $injector, $q, $ocLazyLoad) {
+  .factory('adapter', function($rootScope, $injector, $q, $ocLazyLoad) {
     var adapters = {};    
     return function(scope) {
       var a = $rootScope.adapter;
@@ -12,6 +12,7 @@ angular.module('adapters', ['factoryng', 'oc.lazyLoad'])
           files: a.files
         }).then(function () {
           var Adapter = $injector.get(a.name); // dynamically inject the adapter
+          var yngutils = $injector.get('yngutils');
           adapters[a.name] = new Adapter('projects', a.url, yngutils.ASC);
           return adapters[a.name].bind(scope).then(function () {
             // Most production environments would not call cleanup() here and would instead call it

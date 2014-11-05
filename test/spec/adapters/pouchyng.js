@@ -1,8 +1,8 @@
 'use strict';
 
-(function () {
+var Pouchyng = require('../../../scripts/adapters/pouchyng'),
+    YngAdapter = require('../yng-adapter');
+
 var adapter = new YngAdapter('Pouchyng', 'http://localhost:5984');
-adapter.run(function(_Pouchyng_) {
-  adapter.Adapter = _Pouchyng_;
-});
-})();
+adapter.AdapterFactory = Pouchyng;
+adapter.run();

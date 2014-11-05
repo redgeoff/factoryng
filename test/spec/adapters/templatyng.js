@@ -1,8 +1,8 @@
 'use strict';
 
-(function () {
+var Templatyng = require('../../../scripts/adapters/templatyng'),
+    YngAdapter = require('../yng-adapter');
+
 var adapter = new YngAdapter('Templatyng', 'https://some-url-if-applicable');
-adapter.run(function(_Templatyng_) {
-  adapter.Adapter = _Templatyng_;
-});
-})();
+adapter.AdapterFactory = Templatyng;
+adapter.run();

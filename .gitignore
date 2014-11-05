@@ -1,4 +1,6 @@
 node_modules
 .DS_Store
-bower_components
+*~
 coverage
+test/test-bundle.js
+npm-debug.log
