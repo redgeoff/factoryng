@@ -42,8 +42,9 @@ function bundle() {
 }
 
 function startServers(callback) {
-  var addCorsToCouchDB = Promise.promisify(AddCorsToCouchDB);
+  readyCallback = callback;
 
+  var addCorsToCouchDB = Promise.promisify(AddCorsToCouchDB);
   addCorsToCouchDB(COUCH_HOST).then(function () {
     return http_server.createServer().listen(HTTP_PORT);
   }).then(function () {
