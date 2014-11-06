@@ -2,7 +2,8 @@
 
 'use strict';
 
-var YngUtils = require('../yng-utils'), YngFactory = require('../yng');
+var YngUtils = require('../yng-utils'), YngFactory = require('../yng'),
+    Persist = require('pouchdb-persist');
 
 module.exports = function ($q, $timeout) {
   var Yng = new YngFactory($q, $timeout), yngutils = new YngUtils($q);
@@ -15,6 +16,8 @@ module.exports = function ($q, $timeout) {
   } else {
     var PouchDB = window.PouchDB;
   }
+
+  PouchDB.plugin(Persist);
 
   return function (name, url, sortBy, suffix) {
     var that = this;
@@ -31,9 +34,7 @@ module.exports = function ($q, $timeout) {
     this.yng.props = { changes: config, to: config, from: config };
 
     this.db = null;
-    this.to = null;
-    this.from = null;
-    this.changes = null;
+    this.persist = null;
 
     // use a suffix as the name to prevent duplicate db names across adapters
     var dbName = that.yng.name + '_' + suffix;
@@ -80,54 +81,44 @@ module.exports = function ($q, $timeout) {
       };
     }
 
-    function listenForChanges(info) {
-      /* jshint camelcase: false */
-      var chOpts = { since: info.update_seq, live: true };
-      chOpts = yngutils.merge(chOpts, yngutils.get(that.yng.props, 'changes', 'opts'));
-      that.changes = that.db.changes(chOpts);
-    }
-
-    function replicate(defer) {
-      var toOpts = { live: true }, frOpts = toOpts,
-          remoteCouch = that.yng.url + '/' +
-            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name);
-      toOpts = yngutils.merge(toOpts, yngutils.get(that.yng.props, 'to', 'opts'));
-      frOpts = yngutils.merge(frOpts, yngutils.get(that.yng.props, 'from', 'opts'));
-
+    function fromListeners(defer) {
       // If the local pouch database doesn't already exist then we need to wait for the
       // uptodate or error events before a call to allDocs() will return all the data in the
       // remote database.
-      that.to = that.db.replicate.to(remoteCouch, toOpts, syncError);
-      that.from = that.db.replicate.from(remoteCouch, frOpts, syncError)
-                         .once('uptodate', onLoadFactory(defer))
-                         .on('uptodate', onUpToDate)
-                         .once('error', onLoadFactory(defer))
-                         .on('complete', onUpToDate);
+      return [
+        { method: 'once', event: 'uptodate', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'uptodate', listener: onUpToDate },
+        { method: 'once', event: 'error', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'complete', listener: onUpToDate }
+      ];
     }
 
     function sync() {
-      return that.db.info().then(function (info) {
-        var defer = $q.defer();
-        listenForChanges(info);
-        that.registerListeners();
-        replicate(defer);
-        return defer.promise;
+      var defer = $q.defer();
+      that.persist = that.db.persist({
+        url: that.yng.url + '/' +
+            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name),
+        manual: true,
+        changes: {
+          opts: yngutils.get(that.yng.props, 'changes', 'opts')
+        },
+        to: {
+          opts: yngutils.get(that.yng.props, 'to', 'opts'),
+          onErr: syncError
+        },
+        from: {
+          opts: yngutils.get(that.yng.props, 'from', 'opts'),
+          onErr: syncError,
+          listeners: fromListeners(defer)
+        }
       });
+      that.registerListeners();
+      that.persist.start();
+      return defer.promise;
     }
 
     this.cancel = function () {
-      /* istanbul ignore next */
-      if (that.changes) {
-        that.changes.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.to) {
-        that.to.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.from) {
-        that.from.cancel();
-      }
+      this.persist.cancel();
     };
 
     function destroyRemoteDb () {
