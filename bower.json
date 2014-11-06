@@ -1,6 +1,6 @@
 {
   "name": "factoryng",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "An all-in-one angularjs factory that wraps multiple backends",
   "main": "dist/adapters/pouchyng.min.js",
   "homepage": "https://github.com/redgeoff/factoryng",
@@ -29,7 +29,6 @@
     "coverage",
     "npm-debug.log"
   ],
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "appPath": "app"
 }
