@@ -50,6 +50,7 @@
     "mocha": "~1.18",
     "phantomjs": "^1.9.7-5",
     "pouchdb": "pouchdb/pouchdb",
+    "pouchdb-persist": "0.0.6",
     "q": "^1.0.1",
     "request": "^2.36.0",
     "sauce-connect-launcher": "^0.4.2",

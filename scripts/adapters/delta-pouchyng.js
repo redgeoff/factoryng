@@ -17,12 +17,12 @@ module.exports = function ($q, $timeout) {
     var PouchDB = window.PouchDB;
   }
 
+  PouchDB.plugin(DeltaPouch);
+
   return function (name, url, sortBy) {
 
     var common = new PouchyngCommon(name, url, sortBy, 'deltapouchyng');
     common.copyApi(this);
-
-    PouchDB.plugin(DeltaPouch);
 
     common.map = function () {
       return common.db.all().then(function (docs) {
