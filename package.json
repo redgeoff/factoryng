@@ -7,6 +7,19 @@
     "type": "git",
     "url": "git://github.com/redgeoff/factoryng.git"
   },
+  "keywords": [
+    "angular",
+    "angularjs",
+    "factory",
+    "binding",
+    "pouch",
+    "pouchdb",
+    "delta-pouch",
+    "delta pouch",
+    "couch",
+    "couchdb",
+    "firebase"
+  ],
   "author": "Geoffrey Cox",
   "license": "Apache",
   "bugs": {
