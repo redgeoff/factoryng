@@ -1236,13 +1236,324 @@ if (typeof Object.create === 'function') {
 },{}],26:[function(require,module,exports){
 'use strict';
 
+var utils = require('./pouch-utils');
+var events = require('events');
+
+// Note: using retry ideas similar to npm-browser (https://github.com/pouchdb/npm-browser)
+var STARTING_RETRY_TIMEOUT = 1000;
+var MAX_TIMEOUT = 300000; // 5 mins
+var BACKOFF = 1.1;
+
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function merge(obj1, obj2) {
+  var merged = {}, i;
+  /* istanbul ignore next */
+  if (obj1) {
+    for (i in obj1) {
+      merged[i] = obj1[i];
+    }
+  }
+  /* istanbul ignore next */
+  if (obj2) {
+    for (i in obj2) {
+      merged[i] = obj2[i];
+    }
+  }
+  return merged;
+}
+
+// Supported options:
+//  url, startingTimeout, maxTimeout, backoff, manual
+//  changes.opts
+//  to.url, to.onErr, to.listeners, to.opts
+//  from.url, from.onErr, from.listeners, from.opts
+
+exports.persist = function (opts) {
+  var db = this;
+
+  var per = new events.EventEmitter();
+
+  per.TO = 1;
+  per.FROM = 2;
+  per.BOTH = 3;
+
+  per.opts = { changes: {}, to: {}, from: {} }; // init to prevent undefined errors
+  per.config = function (opts) {
+    for (var i in opts) {
+      per.opts[i] = opts[i];
+    }
+  };
+  if (opts) {
+    per.config(opts);
+  }
+
+  per.startingTimeout = opts && opts.startingTimeout ? opts.startingTimeout: STARTING_RETRY_TIMEOUT;
+  per.maxTimeout = opts && opts.maxTimeout ? opts.maxTimeout: MAX_TIMEOUT;
+  per.backoff = opts && opts.backoff ? opts.backoff : BACKOFF;
+  per.connected = false;
+
+  var vars = {
+    retryTimeout: per.startingTimeout,
+    replicating: false,
+    connected: false
+  };
+
+  var state = {}, replicating = false;
+  state[per.TO] = vars;
+  state[per.FROM] = clone(vars);
+
+  function setup() {
+    return db.info().then(function (info) {
+      var d = per.opts.changes,
+          opts = { since: info.update_seq, live: true };
+      if (d.opts) {
+        opts = merge(opts, d.opts);
+      }
+      per.changes = db.changes(opts);
+    });
+  }
+
+  function addListeners(emitter, listeners) {
+    listeners.forEach(function (listener) {
+      var fn = emitter[listener['method']];
+      fn.call(emitter, listener['event'], listener['listener']);
+    });
+  }
+
+  // TODO: override window.XMLHttpRequest to test the following
+  /* istanbul ignore next */
+  function backoff(retryTimeout) {
+    return Math.min(per.maxTimeout, Math.floor(retryTimeout * per.backoff)); // exponential backoff
+  }
+
+  function disconnect() {
+    per.connected = false;
+    per.emit('disconnect');
+  }
+
+  // TODO: override window.XMLHttpRequest to test the following
+  /* istanbul ignore next */
+  function onError(err, direction) {
+    if (err.status === 405) { // unknown error
+      var s = state[direction];
+      s.connected = false;
+      s.retryTimeout = backoff(s.retryTimeout);
+      setTimeout(direction === per.TO ? replicateTo : replicateFrom, s.retryTimeout);
+      if (per.connected) {
+        disconnect();
+      }
+    }
+  }
+
+  function connect() {
+    per.connected = true;
+    per.emit('connect');
+  }
+
+  function onConnect(direction) {
+    var s = state[direction];
+    s.connected = true;
+    s.retryTimeout = per.startingTimeout;
+    removeConnectListeners(direction);
+    if (state[per.TO].connected && state[per.FROM].connected) {
+      connect();
+    }
+  }
+
+  function removeConnectListeners(direction) {
+    var emitter = direction === per.TO ? per.to : per.from;
+    var connectListener = state[direction].connectListener;
+    emitter.removeListener('change', connectListener);
+    emitter.removeListener('complete', connectListener);
+    emitter.removeListener('uptodate', connectListener);
+  }
+
+  function registerListeners(emitter, direction, listeners) {
+
+    // TODO: override window.XMLHttpRequest to test the following
+    /* istanbul ignore next */
+    emitter.on('error', function (err) {
+      onError(err, direction);
+    });
+
+    state[direction].connectListener = function () {
+      onConnect(direction);
+    };
+    var connectListener = state[direction].connectListener;
+    emitter.once('change', connectListener)
+           .once('complete', connectListener)
+           .once('uptodate', connectListener);
+
+    if (listeners) {
+      addListeners(emitter, listeners);
+    }
+  }
+
+  function replicate(direction) {
+    var d = direction === per.TO ? per.opts.to : per.opts.from,
+        method = direction === per.TO ? db.replicate.to : db.replicate.from;
+
+    var opts = { live: true }, url = d.url ? d.url : per.opts.url;
+
+    if (d.opts) {
+      opts = merge(opts, d.opts);
+    }
+
+    if (direction === per.TO) {
+      cancelTo();
+    } else {
+      cancelFrom();
+    }
+
+    var emitter = method(url, opts, d.onErr);
+
+    if (direction === per.TO) {
+      per.to = emitter;
+    } else {
+      per.from = emitter;
+    }
+
+    registerListeners(emitter, direction, d.listeners);
+  }
+
+  function replicateTo() {
+    replicate(per.TO);
+  }
+
+  function replicateFrom() {
+    replicate(per.FROM);
+  }
+
+  function startReplication(direction) {
+    if (!state[per.TO].replicating && (direction === per.BOTH || direction === per.TO)) {
+      state[per.TO].replicating = true;
+      replicateTo();
+    }
+    if (!state[per.FROM].replicating && (direction === per.BOTH || direction === per.FROM)) {
+      state[per.FROM].replicating = true;
+      replicateFrom();
+    }
+  }
+
+  per.start = function (direction) {
+    direction = direction ? direction : per.BOTH;
+    if (!replicating) {
+      return setup().then(function () {
+        replicating = true;
+        startReplication(direction);
+      });
+    } else {
+      return new utils.Promise(function () {
+        startReplication(direction);
+      });
+    }
+  };
+
+  function cancelChanges() {
+    if (per.changes) {
+      per.changes.cancel();
+    }
+  }
+
+  function cancelTo() {
+    if (per.to) {
+      per.to.cancel();
+    }
+  }
+
+  function cancelFrom() {
+    if (per.from) {
+      per.from.cancel();
+    }
+  }
+
+  per.cancel = function () {
+    cancelChanges();
+    cancelTo();
+    cancelFrom();
+  };
+
+  per.stop = function (direction) {
+    direction = direction ? direction : per.BOTH;
+    if (direction === per.BOTH || direction === per.TO) {
+      state[per.TO].replicating = false;
+      state[per.TO].connected = false;
+      cancelTo();
+    }
+    if (direction === per.BOTH || direction === per.FROM) {
+      state[per.FROM].replicating = false;
+      state[per.FROM].connected = false;
+      cancelFrom();
+    }
+    if (!state[per.TO].replicating && !state[per.FROM].replicating) {
+      cancelChanges();
+    }
+    disconnect();
+  };
+
+  if (opts && !opts.manual) {
+    per.start();
+  }
+
+  return per;
+};
+
+/* istanbul ignore next */
+if (typeof window !== 'undefined' && window.PouchDB) {
+  window.PouchDB.plugin(exports);
+}
+
+},{"./pouch-utils":45,"events":24}],27:[function(require,module,exports){
+module.exports=require(5)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/INTERNAL.js":5}],28:[function(require,module,exports){
+module.exports=require(6)
+},{"./INTERNAL":27,"./handlers":29,"./promise":31,"./reject":34,"./resolve":35,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/all.js":6}],29:[function(require,module,exports){
+module.exports=require(7)
+},{"./resolveThenable":36,"./states":37,"./tryCatch":38,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/handlers.js":7}],30:[function(require,module,exports){
+module.exports=require(8)
+},{"./all":28,"./promise":31,"./race":33,"./reject":34,"./resolve":35,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/index.js":8}],31:[function(require,module,exports){
+module.exports=require(9)
+},{"./INTERNAL":27,"./queueItem":32,"./resolveThenable":36,"./states":37,"./unwrap":39,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/promise.js":9}],32:[function(require,module,exports){
+module.exports=require(10)
+},{"./handlers":29,"./unwrap":39,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/queueItem.js":10}],33:[function(require,module,exports){
+module.exports=require(11)
+},{"./INTERNAL":27,"./handlers":29,"./promise":31,"./reject":34,"./resolve":35,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/race.js":11}],34:[function(require,module,exports){
+module.exports=require(12)
+},{"./INTERNAL":27,"./handlers":29,"./promise":31,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/reject.js":12}],35:[function(require,module,exports){
+module.exports=require(13)
+},{"./INTERNAL":27,"./handlers":29,"./promise":31,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/resolve.js":13}],36:[function(require,module,exports){
+module.exports=require(14)
+},{"./handlers":29,"./tryCatch":38,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/resolveThenable.js":14}],37:[function(require,module,exports){
+module.exports=require(15)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/states.js":15}],38:[function(require,module,exports){
+module.exports=require(16)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/tryCatch.js":16}],39:[function(require,module,exports){
+module.exports=require(17)
+},{"./handlers":29,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/lib/unwrap.js":17,"immediate":40}],40:[function(require,module,exports){
+module.exports=require(18)
+},{"./messageChannel":41,"./mutation.js":42,"./nextTick":2,"./stateChange":43,"./timeout":44,"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/node_modules/immediate/lib/index.js":18}],41:[function(require,module,exports){
+module.exports=require(19)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/node_modules/immediate/lib/messageChannel.js":19}],42:[function(require,module,exports){
+module.exports=require(20)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/node_modules/immediate/lib/mutation.js":20}],43:[function(require,module,exports){
+module.exports=require(21)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/node_modules/immediate/lib/stateChange.js":21}],44:[function(require,module,exports){
+module.exports=require(22)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/node_modules/lie/node_modules/immediate/lib/timeout.js":22}],45:[function(require,module,exports){
+module.exports=require(23)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/delta-pouch/pouch-utils.js":23,"_process":3,"inherits":25,"lie":30}],46:[function(require,module,exports){
+'use strict';
+
 var angular = require('../angular');
 var factoryng = require('../index.js');
 
 var app = angular.module('factoryng');
 
 app.factory('DeltaPouchyng', ['$q', '$timeout', require('./delta-pouchyng')]);
-},{"../angular":29,"../index.js":30,"./delta-pouchyng":27}],27:[function(require,module,exports){
+},{"../angular":49,"../index.js":50,"./delta-pouchyng":47}],47:[function(require,module,exports){
 // TODO: Option to enable encryption that uses filter pouch
 
 'use strict';
@@ -1262,12 +1573,12 @@ module.exports = function ($q, $timeout) {
     var PouchDB = window.PouchDB;
   }
 
+  PouchDB.plugin(DeltaPouch);
+
   return function (name, url, sortBy) {
 
     var common = new PouchyngCommon(name, url, sortBy, 'deltapouchyng');
     common.copyApi(this);
-
-    PouchDB.plugin(DeltaPouch);
 
     common.map = function () {
       return common.db.all().then(function (docs) {
@@ -1356,12 +1667,13 @@ module.exports = function ($q, $timeout) {
 
   };
 };
-},{"../yng-utils":31,"./pouchyng-common":28,"delta-pouch":4,"pouchdb":1}],28:[function(require,module,exports){
+},{"../yng-utils":51,"./pouchyng-common":48,"delta-pouch":4,"pouchdb":1}],48:[function(require,module,exports){
 // TODO: Option to enable encryption that uses filter pouch
 
 'use strict';
 
-var YngUtils = require('../yng-utils'), YngFactory = require('../yng');
+var YngUtils = require('../yng-utils'), YngFactory = require('../yng'),
+    Persist = require('pouchdb-persist');
 
 module.exports = function ($q, $timeout) {
   var Yng = new YngFactory($q, $timeout), yngutils = new YngUtils($q);
@@ -1374,6 +1686,8 @@ module.exports = function ($q, $timeout) {
   } else {
     var PouchDB = window.PouchDB;
   }
+
+  PouchDB.plugin(Persist);
 
   return function (name, url, sortBy, suffix) {
     var that = this;
@@ -1390,9 +1704,7 @@ module.exports = function ($q, $timeout) {
     this.yng.props = { changes: config, to: config, from: config };
 
     this.db = null;
-    this.to = null;
-    this.from = null;
-    this.changes = null;
+    this.persist = null;
 
     // use a suffix as the name to prevent duplicate db names across adapters
     var dbName = that.yng.name + '_' + suffix;
@@ -1439,54 +1751,44 @@ module.exports = function ($q, $timeout) {
       };
     }
 
-    function listenForChanges(info) {
-      /* jshint camelcase: false */
-      var chOpts = { since: info.update_seq, live: true };
-      chOpts = yngutils.merge(chOpts, yngutils.get(that.yng.props, 'changes', 'opts'));
-      that.changes = that.db.changes(chOpts);
-    }
-
-    function replicate(defer) {
-      var toOpts = { live: true }, frOpts = toOpts,
-          remoteCouch = that.yng.url + '/' +
-            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name);
-      toOpts = yngutils.merge(toOpts, yngutils.get(that.yng.props, 'to', 'opts'));
-      frOpts = yngutils.merge(frOpts, yngutils.get(that.yng.props, 'from', 'opts'));
-
+    function fromListeners(defer) {
       // If the local pouch database doesn't already exist then we need to wait for the
       // uptodate or error events before a call to allDocs() will return all the data in the
       // remote database.
-      that.to = that.db.replicate.to(remoteCouch, toOpts, syncError);
-      that.from = that.db.replicate.from(remoteCouch, frOpts, syncError)
-                         .once('uptodate', onLoadFactory(defer))
-                         .on('uptodate', onUpToDate)
-                         .once('error', onLoadFactory(defer))
-                         .on('complete', onUpToDate);
+      return [
+        { method: 'once', event: 'uptodate', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'uptodate', listener: onUpToDate },
+        { method: 'once', event: 'error', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'complete', listener: onUpToDate }
+      ];
     }
 
     function sync() {
-      return that.db.info().then(function (info) {
-        var defer = $q.defer();
-        listenForChanges(info);
-        that.registerListeners();
-        replicate(defer);
-        return defer.promise;
+      var defer = $q.defer();
+      that.persist = that.db.persist({
+        url: that.yng.url + '/' +
+            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name),
+        manual: true,
+        changes: {
+          opts: yngutils.get(that.yng.props, 'changes', 'opts')
+        },
+        to: {
+          opts: yngutils.get(that.yng.props, 'to', 'opts'),
+          onErr: syncError
+        },
+        from: {
+          opts: yngutils.get(that.yng.props, 'from', 'opts'),
+          onErr: syncError,
+          listeners: fromListeners(defer)
+        }
       });
+      that.registerListeners();
+      that.persist.start();
+      return defer.promise;
     }
 
     this.cancel = function () {
-      /* istanbul ignore next */
-      if (that.changes) {
-        that.changes.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.to) {
-        that.to.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.from) {
-        that.from.cancel();
-      }
+      this.persist.cancel();
     };
 
     function destroyRemoteDb () {
@@ -1529,11 +1831,11 @@ module.exports = function ($q, $timeout) {
 
   };
 };
-},{"../yng":32,"../yng-utils":31,"pouchdb":1}],29:[function(require,module,exports){
+},{"../yng":52,"../yng-utils":51,"pouchdb":1,"pouchdb-persist":26}],49:[function(require,module,exports){
 require('angular');
 
 module.exports = angular;
-},{"angular":1}],30:[function(require,module,exports){
+},{"angular":1}],50:[function(require,module,exports){
 'use strict';
 
 var angular = require('./angular');
@@ -1543,7 +1845,7 @@ var app = angular.module('factoryng', []);
 app.service('yngutils', ['$q', require('./yng-utils')]);
 
 app.factory('Yng', ['$q', '$timeout', require('./yng')]);
-},{"./angular":29,"./yng":32,"./yng-utils":31}],31:[function(require,module,exports){
+},{"./angular":49,"./yng":52,"./yng-utils":51}],51:[function(require,module,exports){
 'use strict';
 
 module.exports = function ($q) {
@@ -1648,7 +1950,7 @@ module.exports = function ($q) {
   };
 
 };
-},{}],32:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 'use strict';
 
 var inherits = require('inherits'), EventEmitter = require('events').EventEmitter,
@@ -1671,7 +1973,6 @@ module.exports = function ($q, $timeout) {
   // We define our own event emitter instead of using angular's as it is possible that two
   // different adapters are bound to the same scope and we wouldn't want to have their events
   // interfere with each other.
-  // inherits(Yng, EventEmitter);
   inherits(Yng, EventEmitter);
 
   // delay to minimize sorting while receiving multiple $priority updates
@@ -1886,4 +2187,4 @@ module.exports = function ($q, $timeout) {
 
   return Yng;    
 };
-},{"./yng-utils":31,"events":24,"inherits":25}]},{},[26]);
+},{"./yng-utils":51,"events":24,"inherits":25}]},{},[46]);

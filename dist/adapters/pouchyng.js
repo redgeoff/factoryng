@@ -1,6 +1,96 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
+module.exports=require(1)
+},{"/Users/geoffreycox/Documents/nobkup/factoryng/node_modules/browserify/lib/_empty.js":1}],3:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canMutationObserver = typeof window !== 'undefined'
+    && window.MutationObserver;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    var queue = [];
+
+    if (canMutationObserver) {
+        var hiddenDiv = document.createElement("div");
+        var observer = new MutationObserver(function () {
+            var queueList = queue.slice();
+            queue.length = 0;
+            queueList.forEach(function (fn) {
+                fn();
+            });
+        });
+
+        observer.observe(hiddenDiv, { attributes: true });
+
+        return function nextTick(fn) {
+            if (!queue.length) {
+                hiddenDiv.setAttribute('yes', 'no');
+            }
+            queue.push(fn);
+        };
+    }
+
+    if (canPost) {
+        window.addEventListener('message', function (ev) {
+            var source = ev.source;
+            if ((source === window || source === null) && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],4:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -303,7 +393,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],3:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -328,12 +418,842 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
+'use strict';
+
+var utils = require('./pouch-utils');
+var events = require('events');
+
+// Note: using retry ideas similar to npm-browser (https://github.com/pouchdb/npm-browser)
+var STARTING_RETRY_TIMEOUT = 1000;
+var MAX_TIMEOUT = 300000; // 5 mins
+var BACKOFF = 1.1;
+
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function merge(obj1, obj2) {
+  var merged = {}, i;
+  /* istanbul ignore next */
+  if (obj1) {
+    for (i in obj1) {
+      merged[i] = obj1[i];
+    }
+  }
+  /* istanbul ignore next */
+  if (obj2) {
+    for (i in obj2) {
+      merged[i] = obj2[i];
+    }
+  }
+  return merged;
+}
+
+// Supported options:
+//  url, startingTimeout, maxTimeout, backoff, manual
+//  changes.opts
+//  to.url, to.onErr, to.listeners, to.opts
+//  from.url, from.onErr, from.listeners, from.opts
+
+exports.persist = function (opts) {
+  var db = this;
+
+  var per = new events.EventEmitter();
+
+  per.TO = 1;
+  per.FROM = 2;
+  per.BOTH = 3;
+
+  per.opts = { changes: {}, to: {}, from: {} }; // init to prevent undefined errors
+  per.config = function (opts) {
+    for (var i in opts) {
+      per.opts[i] = opts[i];
+    }
+  };
+  if (opts) {
+    per.config(opts);
+  }
+
+  per.startingTimeout = opts && opts.startingTimeout ? opts.startingTimeout: STARTING_RETRY_TIMEOUT;
+  per.maxTimeout = opts && opts.maxTimeout ? opts.maxTimeout: MAX_TIMEOUT;
+  per.backoff = opts && opts.backoff ? opts.backoff : BACKOFF;
+  per.connected = false;
+
+  var vars = {
+    retryTimeout: per.startingTimeout,
+    replicating: false,
+    connected: false
+  };
+
+  var state = {}, replicating = false;
+  state[per.TO] = vars;
+  state[per.FROM] = clone(vars);
+
+  function setup() {
+    return db.info().then(function (info) {
+      var d = per.opts.changes,
+          opts = { since: info.update_seq, live: true };
+      if (d.opts) {
+        opts = merge(opts, d.opts);
+      }
+      per.changes = db.changes(opts);
+    });
+  }
+
+  function addListeners(emitter, listeners) {
+    listeners.forEach(function (listener) {
+      var fn = emitter[listener['method']];
+      fn.call(emitter, listener['event'], listener['listener']);
+    });
+  }
+
+  // TODO: override window.XMLHttpRequest to test the following
+  /* istanbul ignore next */
+  function backoff(retryTimeout) {
+    return Math.min(per.maxTimeout, Math.floor(retryTimeout * per.backoff)); // exponential backoff
+  }
+
+  function disconnect() {
+    per.connected = false;
+    per.emit('disconnect');
+  }
+
+  // TODO: override window.XMLHttpRequest to test the following
+  /* istanbul ignore next */
+  function onError(err, direction) {
+    if (err.status === 405) { // unknown error
+      var s = state[direction];
+      s.connected = false;
+      s.retryTimeout = backoff(s.retryTimeout);
+      setTimeout(direction === per.TO ? replicateTo : replicateFrom, s.retryTimeout);
+      if (per.connected) {
+        disconnect();
+      }
+    }
+  }
+
+  function connect() {
+    per.connected = true;
+    per.emit('connect');
+  }
+
+  function onConnect(direction) {
+    var s = state[direction];
+    s.connected = true;
+    s.retryTimeout = per.startingTimeout;
+    removeConnectListeners(direction);
+    if (state[per.TO].connected && state[per.FROM].connected) {
+      connect();
+    }
+  }
+
+  function removeConnectListeners(direction) {
+    var emitter = direction === per.TO ? per.to : per.from;
+    var connectListener = state[direction].connectListener;
+    emitter.removeListener('change', connectListener);
+    emitter.removeListener('complete', connectListener);
+    emitter.removeListener('uptodate', connectListener);
+  }
+
+  function registerListeners(emitter, direction, listeners) {
+
+    // TODO: override window.XMLHttpRequest to test the following
+    /* istanbul ignore next */
+    emitter.on('error', function (err) {
+      onError(err, direction);
+    });
+
+    state[direction].connectListener = function () {
+      onConnect(direction);
+    };
+    var connectListener = state[direction].connectListener;
+    emitter.once('change', connectListener)
+           .once('complete', connectListener)
+           .once('uptodate', connectListener);
+
+    if (listeners) {
+      addListeners(emitter, listeners);
+    }
+  }
+
+  function replicate(direction) {
+    var d = direction === per.TO ? per.opts.to : per.opts.from,
+        method = direction === per.TO ? db.replicate.to : db.replicate.from;
+
+    var opts = { live: true }, url = d.url ? d.url : per.opts.url;
+
+    if (d.opts) {
+      opts = merge(opts, d.opts);
+    }
+
+    if (direction === per.TO) {
+      cancelTo();
+    } else {
+      cancelFrom();
+    }
+
+    var emitter = method(url, opts, d.onErr);
+
+    if (direction === per.TO) {
+      per.to = emitter;
+    } else {
+      per.from = emitter;
+    }
+
+    registerListeners(emitter, direction, d.listeners);
+  }
+
+  function replicateTo() {
+    replicate(per.TO);
+  }
+
+  function replicateFrom() {
+    replicate(per.FROM);
+  }
+
+  function startReplication(direction) {
+    if (!state[per.TO].replicating && (direction === per.BOTH || direction === per.TO)) {
+      state[per.TO].replicating = true;
+      replicateTo();
+    }
+    if (!state[per.FROM].replicating && (direction === per.BOTH || direction === per.FROM)) {
+      state[per.FROM].replicating = true;
+      replicateFrom();
+    }
+  }
+
+  per.start = function (direction) {
+    direction = direction ? direction : per.BOTH;
+    if (!replicating) {
+      return setup().then(function () {
+        replicating = true;
+        startReplication(direction);
+      });
+    } else {
+      return new utils.Promise(function () {
+        startReplication(direction);
+      });
+    }
+  };
+
+  function cancelChanges() {
+    if (per.changes) {
+      per.changes.cancel();
+    }
+  }
+
+  function cancelTo() {
+    if (per.to) {
+      per.to.cancel();
+    }
+  }
+
+  function cancelFrom() {
+    if (per.from) {
+      per.from.cancel();
+    }
+  }
+
+  per.cancel = function () {
+    cancelChanges();
+    cancelTo();
+    cancelFrom();
+  };
+
+  per.stop = function (direction) {
+    direction = direction ? direction : per.BOTH;
+    if (direction === per.BOTH || direction === per.TO) {
+      state[per.TO].replicating = false;
+      state[per.TO].connected = false;
+      cancelTo();
+    }
+    if (direction === per.BOTH || direction === per.FROM) {
+      state[per.FROM].replicating = false;
+      state[per.FROM].connected = false;
+      cancelFrom();
+    }
+    if (!state[per.TO].replicating && !state[per.FROM].replicating) {
+      cancelChanges();
+    }
+    disconnect();
+  };
+
+  if (opts && !opts.manual) {
+    per.start();
+  }
+
+  return per;
+};
+
+/* istanbul ignore next */
+if (typeof window !== 'undefined' && window.PouchDB) {
+  window.PouchDB.plugin(exports);
+}
+
+},{"./pouch-utils":25,"events":4}],7:[function(require,module,exports){
+'use strict';
+
+module.exports = INTERNAL;
+
+function INTERNAL() {}
+},{}],8:[function(require,module,exports){
+'use strict';
+var Promise = require('./promise');
+var reject = require('./reject');
+var resolve = require('./resolve');
+var INTERNAL = require('./INTERNAL');
+var handlers = require('./handlers');
+module.exports = all;
+function all(iterable) {
+  if (Object.prototype.toString.call(iterable) !== '[object Array]') {
+    return reject(new TypeError('must be an array'));
+  }
+
+  var len = iterable.length;
+  var called = false;
+  if (!len) {
+    return resolve([]);
+  }
+
+  var values = new Array(len);
+  var resolved = 0;
+  var i = -1;
+  var promise = new Promise(INTERNAL);
+  
+  while (++i < len) {
+    allResolver(iterable[i], i);
+  }
+  return promise;
+  function allResolver(value, i) {
+    resolve(value).then(resolveFromAll, function (error) {
+      if (!called) {
+        called = true;
+        handlers.reject(promise, error);
+      }
+    });
+    function resolveFromAll(outValue) {
+      values[i] = outValue;
+      if (++resolved === len & !called) {
+        called = true;
+        handlers.resolve(promise, values);
+      }
+    }
+  }
+}
+},{"./INTERNAL":7,"./handlers":9,"./promise":11,"./reject":14,"./resolve":15}],9:[function(require,module,exports){
+'use strict';
+var tryCatch = require('./tryCatch');
+var resolveThenable = require('./resolveThenable');
+var states = require('./states');
+
+exports.resolve = function (self, value) {
+  var result = tryCatch(getThen, value);
+  if (result.status === 'error') {
+    return exports.reject(self, result.value);
+  }
+  var thenable = result.value;
+
+  if (thenable) {
+    resolveThenable.safely(self, thenable);
+  } else {
+    self.state = states.FULFILLED;
+    self.outcome = value;
+    var i = -1;
+    var len = self.queue.length;
+    while (++i < len) {
+      self.queue[i].callFulfilled(value);
+    }
+  }
+  return self;
+};
+exports.reject = function (self, error) {
+  self.state = states.REJECTED;
+  self.outcome = error;
+  var i = -1;
+  var len = self.queue.length;
+  while (++i < len) {
+    self.queue[i].callRejected(error);
+  }
+  return self;
+};
+
+function getThen(obj) {
+  // Make sure we only access the accessor once as required by the spec
+  var then = obj && obj.then;
+  if (obj && typeof obj === 'object' && typeof then === 'function') {
+    return function appyThen() {
+      then.apply(obj, arguments);
+    };
+  }
+}
+},{"./resolveThenable":16,"./states":17,"./tryCatch":18}],10:[function(require,module,exports){
+module.exports = exports = require('./promise');
+
+exports.resolve = require('./resolve');
+exports.reject = require('./reject');
+exports.all = require('./all');
+exports.race = require('./race');
+},{"./all":8,"./promise":11,"./race":13,"./reject":14,"./resolve":15}],11:[function(require,module,exports){
+'use strict';
+
+var unwrap = require('./unwrap');
+var INTERNAL = require('./INTERNAL');
+var resolveThenable = require('./resolveThenable');
+var states = require('./states');
+var QueueItem = require('./queueItem');
+
+module.exports = Promise;
+function Promise(resolver) {
+  if (!(this instanceof Promise)) {
+    return new Promise(resolver);
+  }
+  if (typeof resolver !== 'function') {
+    throw new TypeError('reslover must be a function');
+  }
+  this.state = states.PENDING;
+  this.queue = [];
+  this.outcome = void 0;
+  if (resolver !== INTERNAL) {
+    resolveThenable.safely(this, resolver);
+  }
+}
+
+Promise.prototype['catch'] = function (onRejected) {
+  return this.then(null, onRejected);
+};
+Promise.prototype.then = function (onFulfilled, onRejected) {
+  if (typeof onFulfilled !== 'function' && this.state === states.FULFILLED ||
+    typeof onRejected !== 'function' && this.state === states.REJECTED) {
+    return this;
+  }
+  var promise = new Promise(INTERNAL);
+
+  
+  if (this.state !== states.PENDING) {
+    var resolver = this.state === states.FULFILLED ? onFulfilled: onRejected;
+    unwrap(promise, resolver, this.outcome);
+  } else {
+    this.queue.push(new QueueItem(promise, onFulfilled, onRejected));
+  }
+
+  return promise;
+};
+
+},{"./INTERNAL":7,"./queueItem":12,"./resolveThenable":16,"./states":17,"./unwrap":19}],12:[function(require,module,exports){
+'use strict';
+var handlers = require('./handlers');
+var unwrap = require('./unwrap');
+
+module.exports = QueueItem;
+function QueueItem(promise, onFulfilled, onRejected) {
+  this.promise = promise;
+  if (typeof onFulfilled === 'function') {
+    this.onFulfilled = onFulfilled;
+    this.callFulfilled = this.otherCallFulfilled;
+  }
+  if (typeof onRejected === 'function') {
+    this.onRejected = onRejected;
+    this.callRejected = this.otherCallRejected;
+  }
+}
+QueueItem.prototype.callFulfilled = function (value) {
+  handlers.resolve(this.promise, value);
+};
+QueueItem.prototype.otherCallFulfilled = function (value) {
+  unwrap(this.promise, this.onFulfilled, value);
+};
+QueueItem.prototype.callRejected = function (value) {
+  handlers.reject(this.promise, value);
+};
+QueueItem.prototype.otherCallRejected = function (value) {
+  unwrap(this.promise, this.onRejected, value);
+};
+},{"./handlers":9,"./unwrap":19}],13:[function(require,module,exports){
+'use strict';
+var Promise = require('./promise');
+var reject = require('./reject');
+var resolve = require('./resolve');
+var INTERNAL = require('./INTERNAL');
+var handlers = require('./handlers');
+module.exports = race;
+function race(iterable) {
+  if (Object.prototype.toString.call(iterable) !== '[object Array]') {
+    return reject(new TypeError('must be an array'));
+  }
+
+  var len = iterable.length;
+  var called = false;
+  if (!len) {
+    return resolve([]);
+  }
+
+  var resolved = 0;
+  var i = -1;
+  var promise = new Promise(INTERNAL);
+  
+  while (++i < len) {
+    resolver(iterable[i]);
+  }
+  return promise;
+  function resolver(value) {
+    resolve(value).then(function (response) {
+      if (!called) {
+        called = true;
+        handlers.resolve(promise, response);
+      }
+    }, function (error) {
+      if (!called) {
+        called = true;
+        handlers.reject(promise, error);
+      }
+    });
+  }
+}
+},{"./INTERNAL":7,"./handlers":9,"./promise":11,"./reject":14,"./resolve":15}],14:[function(require,module,exports){
+'use strict';
+
+var Promise = require('./promise');
+var INTERNAL = require('./INTERNAL');
+var handlers = require('./handlers');
+module.exports = reject;
+
+function reject(reason) {
+	var promise = new Promise(INTERNAL);
+	return handlers.reject(promise, reason);
+}
+},{"./INTERNAL":7,"./handlers":9,"./promise":11}],15:[function(require,module,exports){
+'use strict';
+
+var Promise = require('./promise');
+var INTERNAL = require('./INTERNAL');
+var handlers = require('./handlers');
+module.exports = resolve;
+
+var FALSE = handlers.resolve(new Promise(INTERNAL), false);
+var NULL = handlers.resolve(new Promise(INTERNAL), null);
+var UNDEFINED = handlers.resolve(new Promise(INTERNAL), void 0);
+var ZERO = handlers.resolve(new Promise(INTERNAL), 0);
+var EMPTYSTRING = handlers.resolve(new Promise(INTERNAL), '');
+
+function resolve(value) {
+  if (value) {
+    if (value instanceof Promise) {
+      return value;
+    }
+    return handlers.resolve(new Promise(INTERNAL), value);
+  }
+  var valueType = typeof value;
+  switch (valueType) {
+    case 'boolean':
+      return FALSE;
+    case 'undefined':
+      return UNDEFINED;
+    case 'object':
+      return NULL;
+    case 'number':
+      return ZERO;
+    case 'string':
+      return EMPTYSTRING;
+  }
+}
+},{"./INTERNAL":7,"./handlers":9,"./promise":11}],16:[function(require,module,exports){
+'use strict';
+var handlers = require('./handlers');
+var tryCatch = require('./tryCatch');
+function safelyResolveThenable(self, thenable) {
+  // Either fulfill, reject or reject with error
+  var called = false;
+  function onError(value) {
+    if (called) {
+      return;
+    }
+    called = true;
+    handlers.reject(self, value);
+  }
+
+  function onSuccess(value) {
+    if (called) {
+      return;
+    }
+    called = true;
+    handlers.resolve(self, value);
+  }
+
+  function tryToUnwrap() {
+    thenable(onSuccess, onError);
+  }
+  
+  var result = tryCatch(tryToUnwrap);
+  if (result.status === 'error') {
+    onError(result.value);
+  }
+}
+exports.safely = safelyResolveThenable;
+},{"./handlers":9,"./tryCatch":18}],17:[function(require,module,exports){
+// Lazy man's symbols for states
+
+exports.REJECTED = ['REJECTED'];
+exports.FULFILLED = ['FULFILLED'];
+exports.PENDING = ['PENDING'];
+},{}],18:[function(require,module,exports){
+'use strict';
+
+module.exports = tryCatch;
+
+function tryCatch(func, value) {
+  var out = {};
+  try {
+    out.value = func(value);
+    out.status = 'success';
+  } catch (e) {
+    out.status = 'error';
+    out.value = e;
+  }
+  return out;
+}
+},{}],19:[function(require,module,exports){
+'use strict';
+
+var immediate = require('immediate');
+var handlers = require('./handlers');
+module.exports = unwrap;
+
+function unwrap(promise, func, value) {
+  immediate(function () {
+    var returnValue;
+    try {
+      returnValue = func(value);
+    } catch (e) {
+      return handlers.reject(promise, e);
+    }
+    if (returnValue === promise) {
+      handlers.reject(promise, new TypeError('Cannot resolve promise with itself'));
+    } else {
+      handlers.resolve(promise, returnValue);
+    }
+  });
+}
+},{"./handlers":9,"immediate":20}],20:[function(require,module,exports){
+'use strict';
+var types = [
+  require('./nextTick'),
+  require('./mutation.js'),
+  require('./messageChannel'),
+  require('./stateChange'),
+  require('./timeout')
+];
+var draining;
+var queue = [];
+//named nextTick for less confusing stack traces
+function nextTick() {
+  draining = true;
+  var i, oldQueue;
+  var len = queue.length;
+  while (len) {
+    oldQueue = queue;
+    queue = [];
+    i = -1;
+    while (++i < len) {
+      oldQueue[i]();
+    }
+    len = queue.length;
+  }
+  draining = false;
+}
+var scheduleDrain;
+var i = -1;
+var len = types.length;
+while (++ i < len) {
+  if (types[i] && types[i].test && types[i].test()) {
+    scheduleDrain = types[i].install(nextTick);
+    break;
+  }
+}
+module.exports = immediate;
+function immediate(task) {
+  if (queue.push(task) === 1 && !draining) {
+    scheduleDrain();
+  }
+}
+},{"./messageChannel":21,"./mutation.js":22,"./nextTick":2,"./stateChange":23,"./timeout":24}],21:[function(require,module,exports){
+(function (global){
+'use strict';
+
+exports.test = function () {
+  if (global.setImmediate) {
+    // we can only get here in IE10
+    // which doesn't handel postMessage well
+    return false;
+  }
+  return typeof global.MessageChannel !== 'undefined';
+};
+
+exports.install = function (func) {
+  var channel = new global.MessageChannel();
+  channel.port1.onmessage = func;
+  return function () {
+    channel.port2.postMessage(0);
+  };
+};
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],22:[function(require,module,exports){
+(function (global){
+'use strict';
+//based off rsvp https://github.com/tildeio/rsvp.js
+//license https://github.com/tildeio/rsvp.js/blob/master/LICENSE
+//https://github.com/tildeio/rsvp.js/blob/master/lib/rsvp/asap.js
+
+var Mutation = global.MutationObserver || global.WebKitMutationObserver;
+
+exports.test = function () {
+  return Mutation;
+};
+
+exports.install = function (handle) {
+  var called = 0;
+  var observer = new Mutation(handle);
+  var element = global.document.createTextNode('');
+  observer.observe(element, {
+    characterData: true
+  });
+  return function () {
+    element.data = (called = ++called % 2);
+  };
+};
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],23:[function(require,module,exports){
+(function (global){
+'use strict';
+
+exports.test = function () {
+  return 'document' in global && 'onreadystatechange' in global.document.createElement('script');
+};
+
+exports.install = function (handle) {
+  return function () {
+
+    // Create a <script> element; its readystatechange event will be fired asynchronously once it is inserted
+    // into the document. Do so, thus queuing up the task. Remember to clean up once it's been called.
+    var scriptEl = global.document.createElement('script');
+    scriptEl.onreadystatechange = function () {
+      handle();
+
+      scriptEl.onreadystatechange = null;
+      scriptEl.parentNode.removeChild(scriptEl);
+      scriptEl = null;
+    };
+    global.document.documentElement.appendChild(scriptEl);
+
+    return handle;
+  };
+};
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],24:[function(require,module,exports){
+'use strict';
+exports.test = function () {
+  return true;
+};
+
+exports.install = function (t) {
+  return function () {
+    setTimeout(t, 0);
+  };
+};
+},{}],25:[function(require,module,exports){
+(function (process,global){
+'use strict';
+
+var Promise;
+/* istanbul ignore next */
+if (typeof window !== 'undefined' && window.PouchDB) {
+  Promise = window.PouchDB.utils.Promise;
+} else {
+  Promise = typeof global.Promise === 'function' ? global.Promise : require('lie');
+}
+/* istanbul ignore next */
+exports.once = function (fun) {
+  var called = false;
+  return exports.getArguments(function (args) {
+    if (called) {
+      console.trace();
+      throw new Error('once called  more than once');
+    } else {
+      called = true;
+      fun.apply(this, args);
+    }
+  });
+};
+/* istanbul ignore next */
+exports.getArguments = function (fun) {
+  return function () {
+    var len = arguments.length;
+    var args = new Array(len);
+    var i = -1;
+    while (++i < len) {
+      args[i] = arguments[i];
+    }
+    return fun.call(this, args);
+  };
+};
+/* istanbul ignore next */
+exports.toPromise = function (func) {
+  //create the function we will be returning
+  return exports.getArguments(function (args) {
+    var self = this;
+    var tempCB = (typeof args[args.length - 1] === 'function') ? args.pop() : false;
+    // if the last argument is a function, assume its a callback
+    var usedCB;
+    if (tempCB) {
+      // if it was a callback, create a new callback which calls it,
+      // but do so async so we don't trap any errors
+      usedCB = function (err, resp) {
+        process.nextTick(function () {
+          tempCB(err, resp);
+        });
+      };
+    }
+    var promise = new Promise(function (fulfill, reject) {
+      try {
+        var callback = exports.once(function (err, mesg) {
+          if (err) {
+            reject(err);
+          } else {
+            fulfill(mesg);
+          }
+        });
+        // create a callback for this invocation
+        // apply the function in the orig context
+        args.push(callback);
+        func.apply(self, args);
+      } catch (e) {
+        reject(e);
+      }
+    });
+    // if there is a callback, call it back
+    if (usedCB) {
+      promise.then(function (result) {
+        usedCB(null, result);
+      }, usedCB);
+    }
+    promise.cancel = function () {
+      return this;
+    };
+    return promise;
+  });
+};
+
+exports.inherits = require('inherits');
+exports.Promise = Promise;
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"_process":3,"inherits":5,"lie":10}],26:[function(require,module,exports){
 // TODO: Option to enable encryption that uses filter pouch
 
 'use strict';
 
-var YngUtils = require('../yng-utils'), YngFactory = require('../yng');
+var YngUtils = require('../yng-utils'), YngFactory = require('../yng'),
+    Persist = require('pouchdb-persist');
 
 module.exports = function ($q, $timeout) {
   var Yng = new YngFactory($q, $timeout), yngutils = new YngUtils($q);
@@ -346,6 +1266,8 @@ module.exports = function ($q, $timeout) {
   } else {
     var PouchDB = window.PouchDB;
   }
+
+  PouchDB.plugin(Persist);
 
   return function (name, url, sortBy, suffix) {
     var that = this;
@@ -362,9 +1284,7 @@ module.exports = function ($q, $timeout) {
     this.yng.props = { changes: config, to: config, from: config };
 
     this.db = null;
-    this.to = null;
-    this.from = null;
-    this.changes = null;
+    this.persist = null;
 
     // use a suffix as the name to prevent duplicate db names across adapters
     var dbName = that.yng.name + '_' + suffix;
@@ -411,54 +1331,44 @@ module.exports = function ($q, $timeout) {
       };
     }
 
-    function listenForChanges(info) {
-      /* jshint camelcase: false */
-      var chOpts = { since: info.update_seq, live: true };
-      chOpts = yngutils.merge(chOpts, yngutils.get(that.yng.props, 'changes', 'opts'));
-      that.changes = that.db.changes(chOpts);
-    }
-
-    function replicate(defer) {
-      var toOpts = { live: true }, frOpts = toOpts,
-          remoteCouch = that.yng.url + '/' +
-            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name);
-      toOpts = yngutils.merge(toOpts, yngutils.get(that.yng.props, 'to', 'opts'));
-      frOpts = yngutils.merge(frOpts, yngutils.get(that.yng.props, 'from', 'opts'));
-
+    function fromListeners(defer) {
       // If the local pouch database doesn't already exist then we need to wait for the
       // uptodate or error events before a call to allDocs() will return all the data in the
       // remote database.
-      that.to = that.db.replicate.to(remoteCouch, toOpts, syncError);
-      that.from = that.db.replicate.from(remoteCouch, frOpts, syncError)
-                         .once('uptodate', onLoadFactory(defer))
-                         .on('uptodate', onUpToDate)
-                         .once('error', onLoadFactory(defer))
-                         .on('complete', onUpToDate);
+      return [
+        { method: 'once', event: 'uptodate', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'uptodate', listener: onUpToDate },
+        { method: 'once', event: 'error', listener: onLoadFactory(defer) },
+        { method: 'on', event: 'complete', listener: onUpToDate }
+      ];
     }
 
     function sync() {
-      return that.db.info().then(function (info) {
-        var defer = $q.defer();
-        listenForChanges(info);
-        that.registerListeners();
-        replicate(defer);
-        return defer.promise;
+      var defer = $q.defer();
+      that.persist = that.db.persist({
+        url: that.yng.url + '/' +
+            (yngutils.get(that.yng.props, 'user') ? that.yng.props.user : that.yng.name),
+        manual: true,
+        changes: {
+          opts: yngutils.get(that.yng.props, 'changes', 'opts')
+        },
+        to: {
+          opts: yngutils.get(that.yng.props, 'to', 'opts'),
+          onErr: syncError
+        },
+        from: {
+          opts: yngutils.get(that.yng.props, 'from', 'opts'),
+          onErr: syncError,
+          listeners: fromListeners(defer)
+        }
       });
+      that.registerListeners();
+      that.persist.start();
+      return defer.promise;
     }
 
     this.cancel = function () {
-      /* istanbul ignore next */
-      if (that.changes) {
-        that.changes.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.to) {
-        that.to.cancel();
-      }
-      /* istanbul ignore next */
-      if (that.from) {
-        that.from.cancel();
-      }
+      this.persist.cancel();
     };
 
     function destroyRemoteDb () {
@@ -501,7 +1411,7 @@ module.exports = function ($q, $timeout) {
 
   };
 };
-},{"../yng":10,"../yng-utils":9,"pouchdb":1}],5:[function(require,module,exports){
+},{"../yng":32,"../yng-utils":31,"pouchdb":1,"pouchdb-persist":6}],27:[function(require,module,exports){
 'use strict';
 
 var angular = require('../angular');
@@ -510,7 +1420,7 @@ var factoryng = require('../index.js');
 var app = angular.module('factoryng');
 
 app.factory('Pouchyng', ['$q', '$timeout', require('./pouchyng')]);
-},{"../angular":7,"../index.js":8,"./pouchyng":6}],6:[function(require,module,exports){
+},{"../angular":29,"../index.js":30,"./pouchyng":28}],28:[function(require,module,exports){
 // TODO: Option to enable encryption that uses filter pouch
 
 'use strict';
@@ -621,11 +1531,11 @@ module.exports = function ($q, $timeout) {
 
   };
 };
-},{"../yng-utils":9,"./pouchyng-common":4}],7:[function(require,module,exports){
+},{"../yng-utils":31,"./pouchyng-common":26}],29:[function(require,module,exports){
 require('angular');
 
 module.exports = angular;
-},{"angular":1}],8:[function(require,module,exports){
+},{"angular":1}],30:[function(require,module,exports){
 'use strict';
 
 var angular = require('./angular');
@@ -635,7 +1545,7 @@ var app = angular.module('factoryng', []);
 app.service('yngutils', ['$q', require('./yng-utils')]);
 
 app.factory('Yng', ['$q', '$timeout', require('./yng')]);
-},{"./angular":7,"./yng":10,"./yng-utils":9}],9:[function(require,module,exports){
+},{"./angular":29,"./yng":32,"./yng-utils":31}],31:[function(require,module,exports){
 'use strict';
 
 module.exports = function ($q) {
@@ -740,7 +1650,7 @@ module.exports = function ($q) {
   };
 
 };
-},{}],10:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 'use strict';
 
 var inherits = require('inherits'), EventEmitter = require('events').EventEmitter,
@@ -763,7 +1673,6 @@ module.exports = function ($q, $timeout) {
   // We define our own event emitter instead of using angular's as it is possible that two
   // different adapters are bound to the same scope and we wouldn't want to have their events
   // interfere with each other.
-  // inherits(Yng, EventEmitter);
   inherits(Yng, EventEmitter);
 
   // delay to minimize sorting while receiving multiple $priority updates
@@ -978,4 +1887,4 @@ module.exports = function ($q, $timeout) {
 
   return Yng;    
 };
-},{"./yng-utils":9,"events":2,"inherits":3}]},{},[5]);
+},{"./yng-utils":31,"events":4,"inherits":5}]},{},[27]);
