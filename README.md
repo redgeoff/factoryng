@@ -35,11 +35,9 @@ npm install factoryng
 
 **Include the scripts**
 
-You must include factoryng.js, any adapters that you are using and any underlying adapter technologies, e.g.
+You must include any adapters that you are using and any underlying adapter technologies, e.g.
 
 ```html
-<script src="bower_components/factoryng/dist/factoryng.min.js"></script>
-
 <script src="//cdn.jsdelivr.net/pouchdb/3.0.5/pouchdb.min.js"></script>
 <script src="bower_components/factoryng/dist/adapters/pouchyng.min.js"></script>
 
