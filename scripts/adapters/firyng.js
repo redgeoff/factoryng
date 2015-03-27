@@ -62,7 +62,7 @@ module.exports = function ($q, $timeout) {
 
     function toDoc(snapshot) {
       var doc = snapshot.val();
-      doc.$id = snapshot.name();
+      doc.$id = snapshot.key();
       doc.$priority = snapshot.getPriority();
       return doc;
     }
@@ -91,7 +91,7 @@ module.exports = function ($q, $timeout) {
     this.create = function (doc) {
       return $timeout(function () {
         var newDocRef = ref.push();
-        doc.$id = newDocRef.name();
+        doc.$id = newDocRef.key();
         yng.setPriorityIfNeeded(doc);
         setWithPriority(newDocRef, doc);
         yng.push(doc);
@@ -139,7 +139,7 @@ module.exports = function ($q, $timeout) {
     }
 
     function onChildRemoved(snapshot) {
-      yng.removeDoc(snapshot.name()).then(function () {
+      yng.removeDoc(snapshot.key()).then(function () {
         yng.emit('uptodate');
       });
     }
