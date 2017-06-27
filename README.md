@@ -1,6 +1,8 @@
 factoryng
 ====
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/redgeoff/factoryng.svg)](https://greenkeeper.io/)
+
 [![Build Status](https://travis-ci.org/redgeoff/factoryng.svg)](https://travis-ci.org/redgeoff/factoryng)
 
 An all-in-one angularjs factory that wraps multiple backends.
